@@ -1,0 +1,12 @@
+.env
+.private
+.venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.egg-info/
+data/
+.idea/
+.ruff_cache/
+.draw/
+
