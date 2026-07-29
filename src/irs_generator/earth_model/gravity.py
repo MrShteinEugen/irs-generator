@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from math import sqrt, atan, sin
 from typing import Protocol, runtime_checkable
 
-from ._validation import _finite_float, _positive_float, _validated_latitude
+from irs_generator.utils._validation import _finite_float, _positive_float, _validated_latitude
 from .geometry import ReferenceEllipsoid
 from .rotation import RotationParameters
 

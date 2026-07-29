@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from math import sin, sqrt, cos
 
-from ._validation import _finite_float, _positive_float, _validated_latitude
+from irs_generator.utils._validation import _finite_float, _positive_float, _validated_latitude
 
 __all__ = ["ReferenceEllipsoid"]
 

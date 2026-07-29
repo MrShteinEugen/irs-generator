@@ -2,7 +2,7 @@ from math import isfinite, pi
 
 _HALF_PI = pi / 2.0
 
-def _finite_float(value: float, *, name: str) -> float:
+def _finite_float(value: float, name: str) -> float:
     result = float(value)
     if not isfinite(result):
         raise ValueError(f"{name} must be finite, got {value!r}")
@@ -16,6 +16,13 @@ def _positive_float(value: float, *, name: str) -> float:
     return result
 
 
+def _non_negative(value: float, name: str) -> float:
+    result = float(value)
+    if not isfinite(result) or result < 0.0:
+        raise ValueError(f"{name} must be finite and >= 0, got {value!r}")
+    return result
+
+
 def _validated_latitude(latitude_rad: float) -> float:
     latitude = _finite_float(latitude_rad, name="latitude_rad")
     if not -_HALF_PI <= latitude <= _HALF_PI:
@@ -24,3 +31,10 @@ def _validated_latitude(latitude_rad: float) -> float:
             f"got {latitude!r}"
         )
     return latitude
+
+
+def _validate_dt(dt_s: float) -> float:
+    dt = float(dt_s)
+    if not isfinite(dt) or dt <= 0.0:
+        raise ValueError(f"dt_s must be finite and > 0, got {dt_s!r}")
+    return dt

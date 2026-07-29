@@ -9,7 +9,7 @@ from irs_generator.earth_model.gravity import (
     InverseSquareGravity,
     SomiglianaNormalGravity,
 )
-from irs_generator.earth_model.rotation import RotationParamet
+from irs_generator.earth_model.rotation import RotationParameters
 
 @pytest.fixture
 def wgs84_normal_gravity() -> SomiglianaNormalGravity:

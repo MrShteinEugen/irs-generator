@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import ClassVar, runtime_checkable, Protocol
 
-from ._validation import _positive_float, _validated_latitude
+from irs_generator.utils._validation import _positive_float, _validated_latitude
 from .geometry import ReferenceEllipsoid
 from .gravity import GravityModel, InverseSquareGravity, SomiglianaNormalGravity
 from .rotation import RotationParameters

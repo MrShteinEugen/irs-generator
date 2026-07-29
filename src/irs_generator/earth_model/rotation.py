@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ._validation import _finite_float
+from irs_generator.utils._validation import _finite_float
 
 __all__ = ["RotationParameters"]
 

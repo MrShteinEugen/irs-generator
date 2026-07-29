@@ -2,7 +2,7 @@ from math import inf, nan, pi
 
 import pytest
 
-from irs_generator.earth_model._validation import (
+from irs_generator.utils._validation import (
     _finite_float,
     _positive_float,
     _validated_latitude,
