@@ -5,7 +5,6 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.5.1",
-    "pytest>=8.0",
 ]
 
 [build-system]
@@ -20,6 +19,31 @@ include = ["irs_generator*"]
 test = [
     "pytest>=8.0",
 ]
+lint = [
+    "mypy>=1.13",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+strict_equality = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

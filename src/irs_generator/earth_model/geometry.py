@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
-from math import sin, sqrt, cos
+from math import cos, sin, sqrt
 
-from irs_generator.utils._validation import _finite_float, _positive_float, _validated_latitude
+from irs_generator.utils._validation import (
+    _finite_float,
+    _positive_float,
+    _validated_latitude,
+)
 
 __all__ = ["ReferenceEllipsoid"]
 
@@ -60,7 +64,7 @@ class ReferenceEllipsoid:
 
         a = self.semi_major_axis_m
         b = self.semi_minor_axis_m
-        return (a * a * b) ** (1.0 / 3.0)
+        return float((a * a * b) ** (1.0 / 3.0))
 
     def meridional_radius_m(self, latitude_rad: float) -> float:
         """Meridional radius of curvature M at geodetic latitude."""
@@ -69,9 +73,9 @@ class ReferenceEllipsoid:
         sin_lat = sin(latitude)
         denominator = 1.0 - self.first_eccentricity_squared * sin_lat * sin_lat
         return (
-                self.semi_major_axis_m
-                * (1.0 - self.first_eccentricity_squared)
-                / (denominator * sqrt(denominator))
+            self.semi_major_axis_m
+            * (1.0 - self.first_eccentricity_squared)
+            / (denominator * sqrt(denominator))
         )
 
     def prime_vertical_radius_m(self, latitude_rad: float) -> float:

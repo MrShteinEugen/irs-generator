@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from irs_generator.gps_model.gnss import GnssSample
 from irs_generator.navigation_model.navigation import NavigationState

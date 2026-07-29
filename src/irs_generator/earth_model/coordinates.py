@@ -27,11 +27,12 @@ class GeodeticPosition:
         object.__setattr__(self, "latitude_rad", latitude)
         object.__setattr__(self, "height_m", height)
 
-    def as_array(self, dtype=np.float64) -> VectorArray:
+    def as_array(
+        self,
+        dtype: np.dtype[np.float64] | type[np.float64] = np.float64,
+    ) -> VectorArray:
         if not np.issubdtype(np.dtype(dtype), np.number):
-            raise TypeError(
-                f"dtype must be a numeric type, got {dtype!r}"
-            )
+            raise TypeError(f"dtype must be a numeric type, got {dtype!r}")
 
         return np.array(
             (self.longitude_rad, self.latitude_rad, self.height_m),

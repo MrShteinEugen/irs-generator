@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from math import cos, isfinite, radians
-from typing import Protocol, Sequence
+from typing import Protocol, Self
 
 import numpy as np
 
@@ -70,7 +71,7 @@ class CorrectionOutput:
     position_delta_lon_lat_height: Vector3 = field(default_factory=Vector3.zero)
     applied: bool = False
 
-    def __add__(self, other: "CorrectionOutput") -> "CorrectionOutput":
+    def __add__(self, other: CorrectionOutput) -> CorrectionOutput:
         if not isinstance(other, CorrectionOutput):
             return NotImplemented
         return CorrectionOutput(
@@ -87,12 +88,10 @@ class CorrectionOutput:
                 self.velocity_delta_nav_m_s + other.velocity_delta_nav_m_s
             ),
             position_rate_lon_lat_height=(
-                self.position_rate_lon_lat_height
-                + other.position_rate_lon_lat_height
+                self.position_rate_lon_lat_height + other.position_rate_lon_lat_height
             ),
             position_delta_lon_lat_height=(
-                self.position_delta_lon_lat_height
-                + other.position_delta_lon_lat_height
+                self.position_delta_lon_lat_height + other.position_delta_lon_lat_height
             ),
             applied=self.applied or other.applied,
         )
@@ -104,6 +103,9 @@ class CorrectionStrategy(Protocol):
 
     def reset(self) -> None:
         """Reset state retained by the strategy."""
+
+    def fork(self) -> Self:
+        """Return an independent strategy with the same retained state."""
 
 
 class NoCorrection:
@@ -118,6 +120,10 @@ class NoCorrection:
     def reset() -> None:
         return None
 
+    @staticmethod
+    def fork() -> NoCorrection:
+        return NoCorrection()
+
 
 @dataclass(slots=True)
 class CompositeCorrection:
@@ -130,6 +136,8 @@ class CompositeCorrection:
                 raise TypeError("every strategy must provide compute(context)")
             if not callable(getattr(strategy, "reset", None)):
                 raise TypeError("every strategy must provide reset()")
+            if not callable(getattr(strategy, "fork", None)):
+                raise TypeError("every strategy must provide fork()")
 
     def compute(self, context: CorrectionContext) -> CorrectionOutput:
         result = CorrectionOutput()
@@ -140,6 +148,9 @@ class CompositeCorrection:
     def reset(self) -> None:
         for strategy in self.strategies:
             strategy.reset()
+
+    def fork(self) -> CompositeCorrection:
+        return type(self)(tuple(strategy.fork() for strategy in self.strategies))
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,9 +192,7 @@ class VelocityAidingCorrection:
         latitude = context.ins_state.position.latitude_rad
         height = gnss.position.height_m
 
-        meridional_radius = (
-            context.earth_model.meridional_radius_m(latitude) + height
-        )
+        meridional_radius = context.earth_model.meridional_radius_m(latitude) + height
         prime_vertical_radius = (
             context.earth_model.prime_vertical_radius_m(latitude) + height
         )
@@ -207,6 +216,9 @@ class VelocityAidingCorrection:
     @staticmethod
     def reset() -> None:
         return None
+
+    def fork(self) -> Self:
+        return type(self)(config=self.config)
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,9 +264,7 @@ class PositionAidingCorrection:
         return CorrectionOutput(
             navigation_rate_rad_s=Vector3(
                 -self.config.navigation_rate_gain_per_s * latitude_error,
-                self.config.navigation_rate_gain_per_s
-                * latitude_error
-                * cos_latitude,
+                self.config.navigation_rate_gain_per_s * latitude_error * cos_latitude,
                 0.0,
             ),
             acceleration_nav_m_s2=Vector3(
@@ -279,6 +289,9 @@ class PositionAidingCorrection:
     @staticmethod
     def reset() -> None:
         return None
+
+    def fork(self) -> Self:
+        return type(self)(config=self.config)
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,9 +327,7 @@ class HeightAidingCorrection:
         if gnss is None or not gnss.valid:
             return CorrectionOutput()
 
-        height_error = (
-            context.ins_state.position.height_m - gnss.position.height_m
-        )
+        height_error = context.ins_state.position.height_m - gnss.position.height_m
         return CorrectionOutput(
             acceleration_nav_m_s2=Vector3(
                 0.0,
@@ -334,6 +345,9 @@ class HeightAidingCorrection:
     @staticmethod
     def reset() -> None:
         return None
+
+    def fork(self) -> Self:
+        return type(self)(config=self.config)
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,8 +397,7 @@ class RadialAttitudeCorrection:
 
         allowed = (
             abs(imu_rate.z) <= self.config.max_yaw_rate_rad_s
-            and horizontal_force
-            <= self.config.max_horizontal_specific_force_m_s2
+            and horizontal_force <= self.config.max_horizontal_specific_force_m_s2
             and horizontal_speed >= self.config.min_horizontal_speed_m_s
         )
         if not allowed:
@@ -404,27 +417,17 @@ class RadialAttitudeCorrection:
             gnss_acceleration = Vector3.zero()
         else:
             gnss_acceleration = Vector3(
-                (
-                    current_gnss_velocity.x
-                    - self._previous_gnss_velocity.x
-                )
+                (current_gnss_velocity.x - self._previous_gnss_velocity.x)
                 / context.dt_s,
-                (
-                    current_gnss_velocity.y
-                    - self._previous_gnss_velocity.y
-                )
+                (current_gnss_velocity.y - self._previous_gnss_velocity.y)
                 / context.dt_s,
-                (
-                    current_gnss_velocity.z
-                    - self._previous_gnss_velocity.z
-                )
+                (current_gnss_velocity.z - self._previous_gnss_velocity.z)
                 / context.dt_s,
             )
         self._previous_gnss_velocity = current_gnss_velocity
 
         gnss_heading = float(
-            np.arctan2(gnss_velocity.east_m_s, gnss_velocity.north_m_s)
-            % (2.0 * np.pi)
+            np.arctan2(gnss_velocity.east_m_s, gnss_velocity.north_m_s) % (2.0 * np.pi)
         )
         heading_error = angle_difference_rad(
             context.ins_state.attitude.heading_rad,
@@ -444,3 +447,8 @@ class RadialAttitudeCorrection:
 
     def reset(self) -> None:
         self._previous_gnss_velocity = None
+
+    def fork(self) -> Self:
+        clone = type(self)(config=self.config)
+        clone._previous_gnss_velocity = self._previous_gnss_velocity
+        return clone

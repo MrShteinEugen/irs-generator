@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Protocol, runtime_checkable
 
-from irs_generator.utils.math import Vector3
 from irs_generator.utils._validation import _validate_dt
+from irs_generator.utils.math import Vector3
 
 from .imu import ImuSample
 

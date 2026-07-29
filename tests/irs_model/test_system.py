@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from math import inf, nan
 
 import pytest
@@ -6,11 +6,16 @@ import pytest
 from irs_generator.earth_model import GeodeticPosition
 from irs_generator.irs_model import (
     BiasImuErrorModel,
+    DcmStrapdownINS,
     ImuSample,
     InertialReferenceSystem,
     StrapdownINS,
 )
-from irs_generator.navigation_model import EulerAngles, NavigationState, NavigationVelocity
+from irs_generator.navigation_model import (
+    EulerAngles,
+    NavigationState,
+    NavigationVelocity,
+)
 from irs_generator.utils.math import Vector3
 
 
@@ -95,6 +100,16 @@ def test_strapdown_ins_can_be_used_as_a_navigation_algorithm() -> None:
 
     assert updated_state is irs.state
     assert updated_state.velocity.up_m_s < 0.0
+
+
+def test_dcm_strapdown_fork_keeps_trial_state_independent() -> None:
+    algorithm = DcmStrapdownINS(_initial_state())
+    trial = algorithm.fork()
+
+    trial.step(ImuSample.zero(), 0.01)
+
+    assert algorithm.state == _initial_state()
+    assert trial.state != algorithm.state
 
 
 @pytest.mark.parametrize("dt_s", [0.0, -1.0, nan, inf, -inf])

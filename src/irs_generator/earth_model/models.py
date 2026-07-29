@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import ClassVar, runtime_checkable, Protocol
+from typing import ClassVar, Protocol, runtime_checkable
 
 from irs_generator.utils._validation import _positive_float, _validated_latitude
+
 from .geometry import ReferenceEllipsoid
 from .gravity import GravityModel, InverseSquareGravity, SomiglianaNormalGravity
 from .rotation import RotationParameters
@@ -19,9 +20,17 @@ __all__ = [
 class EarthModel(Protocol):
     """Structural interface shared by all Earth models."""
 
-    name: str
-    rotation: "RotationParameters"
-    gravity_model: GravityModel
+    @property
+    def name(self) -> str:
+        """Return a human-readable model name."""
+
+    @property
+    def rotation(self) -> RotationParameters:
+        """Return Earth rotation parameters."""
+
+    @property
+    def gravity_model(self) -> GravityModel:
+        """Return the gravity strategy."""
 
     @property
     def mean_radius_m(self) -> float:
@@ -166,9 +175,7 @@ class SphericalEarthModel:
         *,
         name: str = "Mean spherical Earth",
         radius_m: float = DEFAULT_RADIUS_M,
-        gravitational_parameter_m3_s2: float = (
-            DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2
-        ),
+        gravitational_parameter_m3_s2: float = (DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2),
         angular_velocity_rad_s: float = DEFAULT_ANGULAR_VELOCITY_RAD_S,
         gravity_model: GravityModel | None = None,
     ) -> None:
@@ -216,5 +223,3 @@ class SphericalEarthModel:
         height_m: float = 0.0,
     ) -> float:
         return self.gravity_model.gravity_m_s2(latitude_rad, height_m)
-
-

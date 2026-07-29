@@ -5,11 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import cos, isfinite, sin, tan
 
-from .corrections import (
-    CorrectionContext,
-    CorrectionStrategy,
-    NoCorrection,
-)
 from irs_generator.earth_model import EarthModel, GeodeticPosition, WGS84EarthModel
 from irs_generator.gps_model import GnssSample
 from irs_generator.navigation_model import (
@@ -17,6 +12,12 @@ from irs_generator.navigation_model import (
     NavigationVelocity,
 )
 from irs_generator.utils.math import Vector3, _normalize_longitude
+
+from .corrections import (
+    CorrectionContext,
+    CorrectionStrategy,
+    NoCorrection,
+)
 from .imu import ImuSample
 from .rotation import (
     AttitudeIntegrator,
@@ -26,7 +27,7 @@ from .rotation import (
     euler_to_dcm_body_to_nav,
 )
 
-__all__ = ["MechanizationConfig", "StrapdownINS"]
+__all__ = ["DcmStrapdownINS", "MechanizationConfig", "StrapdownINS"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,11 +44,8 @@ class MechanizationConfig:
         object.__setattr__(self, "minimum_absolute_cos_latitude", threshold)
 
 
-
-
-
-class StrapdownINS:
-    """Stateful ENU strapdown INS with replaceable Earth and aiding models."""
+class DcmStrapdownINS:
+    """ENU strapdown INS using a DCM form of Poisson attitude kinematics."""
 
     __slots__ = (
         "_attitude_integrator",
@@ -67,7 +65,9 @@ class StrapdownINS:
         attitude_integrator: AttitudeIntegrator | None = None,
         config: MechanizationConfig | None = None,
     ) -> None:
-        self._earth_model = earth_model if earth_model is not None else WGS84EarthModel()
+        self._earth_model = (
+            earth_model if earth_model is not None else WGS84EarthModel()
+        )
         self._correction = correction if correction is not None else NoCorrection()
         self._attitude_integrator = (
             attitude_integrator
@@ -95,6 +95,19 @@ class StrapdownINS:
         self._body_to_nav_dcm = euler_to_dcm_body_to_nav(initial_state.attitude)
         self._correction.reset()
 
+    def fork(self) -> DcmStrapdownINS:
+        """Return an independent copy for an inverse-synthesis trial step."""
+
+        clone = type(self)(
+            self._state,
+            earth_model=self._earth_model,
+            correction=self._correction.fork(),
+            attitude_integrator=self._attitude_integrator.fork(),
+            config=self._config,
+        )
+        clone._body_to_nav_dcm = self._body_to_nav_dcm.copy()
+        return clone
+
     def step(
         self,
         imu_sample: ImuSample,
@@ -107,8 +120,7 @@ class StrapdownINS:
 
         old_state = self._state
         specific_force_nav_array = (
-            self._body_to_nav_dcm
-            @ imu_sample.specific_force_body_m_s2.as_array()
+            self._body_to_nav_dcm @ imu_sample.specific_force_body_m_s2.as_array()
         )
         specific_force_nav = Vector3.from_iterable(specific_force_nav_array)
         base_navigation_rate = self.navigation_rate_rad_s(old_state)
@@ -174,8 +186,7 @@ class StrapdownINS:
             self._earth_model.meridional_radius_m(latitude) + position.height_m
         )
         prime_vertical_radius = (
-            self._earth_model.prime_vertical_radius_m(latitude)
-            + position.height_m
+            self._earth_model.prime_vertical_radius_m(latitude) + position.height_m
         )
         if meridional_radius <= 0.0 or prime_vertical_radius <= 0.0:
             raise ValueError("Earth curvature radius plus height must be > 0")
@@ -209,38 +220,28 @@ class StrapdownINS:
 
         acceleration_east = (
             specific_force_nav.x
-            + velocity.north_m_s
-            * (navigation_rate.z + earth_rate * sin_latitude)
-            - velocity.up_m_s
-            * (earth_rate * cos_latitude + navigation_rate.y)
+            + velocity.north_m_s * (navigation_rate.z + earth_rate * sin_latitude)
+            - velocity.up_m_s * (earth_rate * cos_latitude + navigation_rate.y)
             + acceleration_correction.x
         )
         acceleration_north = (
             specific_force_nav.y
-            - velocity.east_m_s
-            * (navigation_rate.z + earth_rate * sin_latitude)
+            - velocity.east_m_s * (navigation_rate.z + earth_rate * sin_latitude)
             - velocity.up_m_s * navigation_rate.x
             + acceleration_correction.y
         )
         acceleration_up = (
             specific_force_nav.z
-            + velocity.east_m_s
-            * (navigation_rate.y + earth_rate * cos_latitude)
+            + velocity.east_m_s * (navigation_rate.y + earth_rate * cos_latitude)
             - velocity.north_m_s * navigation_rate.x
             - gravity
             + acceleration_correction.z
         )
 
         return NavigationVelocity(
-            velocity.east_m_s
-            + dt_s * acceleration_east
-            + direct_velocity_delta.x,
-            velocity.north_m_s
-            + dt_s * acceleration_north
-            + direct_velocity_delta.y,
-            velocity.up_m_s
-            + dt_s * acceleration_up
-            + direct_velocity_delta.z,
+            velocity.east_m_s + dt_s * acceleration_east + direct_velocity_delta.x,
+            velocity.north_m_s + dt_s * acceleration_north + direct_velocity_delta.y,
+            velocity.up_m_s + dt_s * acceleration_up + direct_velocity_delta.z,
         )
 
     def _propagate_position(
@@ -269,13 +270,9 @@ class StrapdownINS:
         )
         cos_latitude = cos(predicted_latitude)
         if abs(cos_latitude) < self._config.minimum_absolute_cos_latitude:
-            raise ValueError(
-                "longitude propagation is singular too close to a pole"
-            )
+            raise ValueError("longitude propagation is singular too close to a pole")
 
-        longitude_rate = velocity.east_m_s / (
-            prime_vertical_radius * cos_latitude
-        )
+        longitude_rate = velocity.east_m_s / (prime_vertical_radius * cos_latitude)
         longitude = (
             position.longitude_rad
             + dt_s * (longitude_rate + rate_correction.x)
@@ -290,3 +287,7 @@ class StrapdownINS:
             + direct_position_delta.z
         )
         return GeodeticPosition(longitude, predicted_latitude, height)
+
+
+# Compatibility alias. New integrations should use DcmStrapdownINS explicitly.
+StrapdownINS = DcmStrapdownINS

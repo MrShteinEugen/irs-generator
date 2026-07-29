@@ -1,6 +1,7 @@
 .env
 .private
 .venv/
+.tools/
 __pycache__/
 *.py[cod]
 *.sqlite3
@@ -8,5 +9,6 @@ __pycache__/
 data/
 .idea/
 .ruff_cache/
+.pytest-tmp/
 .draw/
 

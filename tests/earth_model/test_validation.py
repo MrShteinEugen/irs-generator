@@ -10,7 +10,7 @@ from irs_generator.utils._validation import (
 
 
 @pytest.mark.parametrize("value", [0, 1, -1.5, "2.5"])
-def test_finite_float_accepts_and_converts_finite_values(value: object) -> None:
+def test_finite_float_accepts_and_converts_finite_values(value: float | str) -> None:
     assert _finite_float(value, name="value") == pytest.approx(float(value))
 
 
@@ -21,7 +21,7 @@ def test_finite_float_rejects_non_finite_values(value: float) -> None:
 
 
 @pytest.mark.parametrize("value", [0.1, 1, "3.5"])
-def test_positive_float_accepts_positive_values(value: object) -> None:
+def test_positive_float_accepts_positive_values(value: float | str) -> None:
     assert _positive_float(value, name="value") == pytest.approx(float(value))
 
 

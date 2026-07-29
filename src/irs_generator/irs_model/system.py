@@ -15,7 +15,7 @@ __all__ = ["InertialReferenceSystem"]
 
 
 class InertialReferenceSystem:
-    """IRS composed from a navigation algorithm and an IMU error model.
+    """IRS composed of a navigation algorithm and an IMU error model.
 
     The system accepts ideal samples from a scenario generator, applies the
     configured sensor-error model, and passes the resulting observation to the
@@ -34,9 +34,7 @@ class InertialReferenceSystem:
         if not isinstance(algorithm, NavigationAlgorithm):
             raise TypeError("algorithm must implement NavigationAlgorithm")
         error_model = (
-            IdealImuErrorModel()
-            if imu_error_model is None
-            else imu_error_model
+            IdealImuErrorModel() if imu_error_model is None else imu_error_model
         )
         if not isinstance(error_model, ImuErrorModel):
             raise TypeError("imu_error_model must implement ImuErrorModel")

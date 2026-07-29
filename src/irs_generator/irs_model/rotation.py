@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from math import cos, pi, sin
-from typing import Protocol, TypeAlias
+from typing import Protocol, Self, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from irs_generator.navigation_model.orientation import EulerAngles
-from irs_generator.utils.math import VectorLike, vector3, skew
+from irs_generator.utils.math import VectorLike, skew, vector3
 
-Matrix3: TypeAlias = NDArray[np.float64]
+type Matrix3 = NDArray[np.float64]
 
 __all__ = [
     "AttitudeIntegrator",
@@ -19,7 +19,7 @@ __all__ = [
     "Matrix3",
     "dcm_body_to_nav_to_euler",
     "euler_to_dcm_body_to_nav",
-    "project_to_rotation_matrix"
+    "project_to_rotation_matrix",
 ]
 
 
@@ -34,22 +34,26 @@ def euler_to_dcm_body_to_nav(attitude: EulerAngles) -> Matrix3:
     c_roll, s_roll = cos(roll), sin(roll)
     c_heading, s_heading = cos(heading), sin(heading)
 
-    return np.array(
-        (
+    return cast(
+        Matrix3,
+        np.array(
             (
-                c_roll * c_heading + s_roll * s_pitch * s_heading,
-                c_pitch * s_heading,
-                s_roll * c_heading - s_pitch * c_roll * s_heading,
+                (
+                    c_roll * c_heading + s_roll * s_pitch * s_heading,
+                    c_pitch * s_heading,
+                    s_roll * c_heading - s_pitch * c_roll * s_heading,
+                ),
+                (
+                    -c_roll * s_heading + s_roll * s_pitch * c_heading,
+                    c_pitch * c_heading,
+                    -s_roll * s_heading - s_pitch * c_roll * c_heading,
+                ),
+                (-c_pitch * s_roll, s_pitch, c_pitch * c_roll),
             ),
-            (
-                -c_roll * s_heading + s_roll * s_pitch * c_heading,
-                c_pitch * c_heading,
-                -s_roll * s_heading - s_pitch * c_roll * c_heading,
-            ),
-            (-c_pitch * s_roll, s_pitch, c_pitch * c_roll),
+            dtype=np.float64,
         ),
-        dtype=np.float64,
     )
+
 
 def dcm_body_to_nav_to_euler(dcm: Matrix3) -> EulerAngles:
     matrix = np.asarray(dcm, dtype=np.float64)
@@ -95,10 +99,13 @@ def project_to_rotation_matrix(matrix: Matrix3) -> Matrix3:
     if np.linalg.det(rotation) < 0.0:
         u[:, -1] *= -1.0
         rotation = u @ vt
-    return rotation
+    return cast(Matrix3, rotation)
 
 
 class AttitudeIntegrator(Protocol):
+    def fork(self) -> Self:
+        """Return an independent integrator with the same configuration."""
+
     def propagate(
         self,
         body_to_nav_dcm: Matrix3,
@@ -124,6 +131,9 @@ class LieGroupAttitudeIntegrator:
         if not np.isfinite(threshold) or threshold <= 0.0:
             raise ValueError("projection_threshold must be finite and > 0")
         self._projection_threshold = threshold
+
+    def fork(self) -> Self:
+        return type(self)(self._projection_threshold)
 
     def propagate(
         self,
@@ -153,9 +163,6 @@ class LieGroupAttitudeIntegrator:
             np.linalg.norm(propagated.T @ propagated - np.eye(3), ord="fro")
         )
         determinant = float(np.linalg.det(propagated))
-        if (
-            orthogonality_error > self._projection_threshold
-            or determinant <= 0.0
-        ):
+        if orthogonality_error > self._projection_threshold or determinant <= 0.0:
             return project_to_rotation_matrix(propagated)
         return propagated

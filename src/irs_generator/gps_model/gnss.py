@@ -26,8 +26,9 @@ class GnssSample:
         valid: bool = True,
     ) -> "GnssSample":
         return cls(
-            velocity=NavigationVelocity(velocity_east_m_s, velocity_north_m_s, velocity_up_m_s),
+            velocity=NavigationVelocity(
+                velocity_east_m_s, velocity_north_m_s, velocity_up_m_s
+            ),
             position=GeodeticPosition(longitude_rad, latitude_rad, height_m),
             valid=bool(valid),
         )
-

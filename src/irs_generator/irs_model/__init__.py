@@ -1,6 +1,6 @@
 """Inertial reference system, sensor errors, and navigation algorithms."""
 
-from .algorithm import NavigationAlgorithm
+from .algorithm import InertialNavigationAlgorithm, NavigationAlgorithm
 from .alignment import AnalyticAlignment
 from .corrections import (
     CompositeCorrection,
@@ -22,7 +22,7 @@ from .error_model import (
     ImuErrorModel,
 )
 from .imu import ImuSample
-from .mechanization import MechanizationConfig, StrapdownINS
+from .mechanization import DcmStrapdownINS, MechanizationConfig, StrapdownINS
 from .system import InertialReferenceSystem
 
 __all__ = [
@@ -30,6 +30,7 @@ __all__ = [
     "CompositeImuErrorModel",
     "CompositeCorrection",
     "CorrectionStrategy",
+    "DcmStrapdownINS",
     "AnalyticAlignment",
     "HeightAidingConfig",
     "HeightAidingCorrection",
@@ -37,6 +38,7 @@ __all__ = [
     "ImuErrorModel",
     "ImuSample",
     "InertialReferenceSystem",
+    "InertialNavigationAlgorithm",
     "MechanizationConfig",
     "NavigationAlgorithm",
     "NoCorrection",

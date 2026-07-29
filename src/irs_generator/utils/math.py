@@ -1,16 +1,15 @@
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from math import pi
 from numbers import Real
-from typing import TypeAlias, Iterable, Iterator
 
 import numpy as np
 from numpy._typing import NDArray
 
 from irs_generator.utils._validation import _finite_float
 
-
-VectorArray: TypeAlias = NDArray[np.float64]
-VectorLike: TypeAlias = Iterable[float] | NDArray[np.floating]
+type VectorArray = NDArray[np.float64]
+type VectorLike = Iterable[float] | NDArray[np.floating]
 
 
 def _normalize_longitude(longitude_rad: float) -> float:
@@ -33,7 +32,7 @@ def angle_difference_rad(first: float, second: float) -> float:
     return float((first - second + np.pi) % (2.0 * np.pi) - np.pi)
 
 
-def skew(vector: VectorLike) -> Matrix3:
+def skew(vector: VectorLike) -> VectorArray:
     x, y, z = vector3(vector)
     return np.array(
         ((0.0, -z, y), (z, 0.0, -x), (-y, x, 0.0)),

@@ -40,8 +40,7 @@ class AnalyticAlignment:
         roll = float(-np.arctan2(acceleration.x, acceleration.z))
         heading = float(
             np.arctan2(
-                acceleration.x * angular_rate.z
-                - acceleration.z * angular_rate.x,
+                acceleration.x * angular_rate.z - acceleration.z * angular_rate.x,
                 gravity * angular_rate.y
                 - acceleration.y
                 * earth_model.rotation.angular_velocity_rad_s

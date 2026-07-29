@@ -42,9 +42,7 @@ def test_curvature_radii_have_reference_values_at_equator_and_pole(
     assert wgs84_ellipsoid.meridional_radius_m(0.0) == pytest.approx(
         6_335_439.327_292_819
     )
-    assert wgs84_ellipsoid.prime_vertical_radius_m(0.0) == pytest.approx(
-        6_378_137.0
-    )
+    assert wgs84_ellipsoid.prime_vertical_radius_m(0.0) == pytest.approx(6_378_137.0)
     assert wgs84_ellipsoid.meridional_radius_m(pi / 2) == pytest.approx(
         6_399_593.625_758_493
     )

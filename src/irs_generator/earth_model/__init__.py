@@ -1,7 +1,7 @@
 """Public API for Earth geometry, rotation, gravity, and Earth models."""
 
-from .geometry import ReferenceEllipsoid
 from .coordinates import GeodeticPosition
+from .geometry import ReferenceEllipsoid
 from .gravity import (
     ConstantGravity,
     GravityModel,

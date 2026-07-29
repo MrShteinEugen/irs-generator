@@ -27,11 +27,12 @@ class NavigationVelocity:
         )
         object.__setattr__(self, "up_m_s", _finite_float(self.up_m_s, "up_m_s"))
 
-    def as_array(self, dtype=np.float64) -> VectorArray:
+    def as_array(
+        self,
+        dtype: np.dtype[np.float64] | type[np.float64] = np.float64,
+    ) -> VectorArray:
         if not np.issubdtype(np.dtype(dtype), np.number):
-            raise TypeError(
-                f"dtype must be a numeric type, got {dtype!r}"
-            )
+            raise TypeError(f"dtype must be a numeric type, got {dtype!r}")
 
         return np.array(
             (self.east_m_s, self.north_m_s, self.up_m_s),
@@ -61,7 +62,9 @@ class NavigationState:
         correction_applied: bool = False,
     ) -> "NavigationState":
         return cls(
-            velocity=NavigationVelocity(velocity_east_m_s, velocity_north_m_s, velocity_up_m_s),
+            velocity=NavigationVelocity(
+                velocity_east_m_s, velocity_north_m_s, velocity_up_m_s
+            ),
             position=GeodeticPosition(longitude_rad, latitude_rad, height_m),
             attitude=EulerAngles(pitch_rad, roll_rad, heading_rad),
             correction_applied=bool(correction_applied),

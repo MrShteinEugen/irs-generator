@@ -18,7 +18,6 @@ class RotationParameters:
         )
         if angular_velocity < 0.0:
             raise ValueError(
-                "angular_velocity_rad_s must be >= 0, "
-                f"got {angular_velocity!r}"
+                f"angular_velocity_rad_s must be >= 0, got {angular_velocity!r}"
             )
         object.__setattr__(self, "angular_velocity_rad_s", angular_velocity)

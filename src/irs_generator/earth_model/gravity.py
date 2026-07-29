@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field
-from math import sqrt, atan, sin
+from math import atan, sin, sqrt
 from typing import Protocol, runtime_checkable
 
-from irs_generator.utils._validation import _finite_float, _positive_float, _validated_latitude
+from irs_generator.utils._validation import (
+    _finite_float,
+    _positive_float,
+    _validated_latitude,
+)
+
 from .geometry import ReferenceEllipsoid
 from .rotation import RotationParameters
 
@@ -17,6 +22,7 @@ __all__ = [
 @runtime_checkable
 class GravityModel(Protocol):
     """Strategy interface for scalar gravity calculations."""
+
     def gravity_m_s2(
         self,
         latitude_rad: float,
@@ -53,14 +59,11 @@ class SomiglianaNormalGravity:
         b = self.ellipsoid.semi_minor_axis_m
         omega = self.rotation.angular_velocity_rad_s
 
-        second_eccentricity = sqrt(
-            self.ellipsoid.second_eccentricity_squared
-        )
+        second_eccentricity = sqrt(self.ellipsoid.second_eccentricity_squared)
         ep2 = second_eccentricity * second_eccentricity
 
         q0 = 0.5 * (
-            (1.0 + 3.0 / ep2) * atan(second_eccentricity)
-            - 3.0 / second_eccentricity
+            (1.0 + 3.0 / ep2) * atan(second_eccentricity) - 3.0 / second_eccentricity
         )
         q0_prime = (
             3.0
@@ -70,20 +73,19 @@ class SomiglianaNormalGravity:
         )
         rotational_m = omega * omega * a * a * b / mu
 
-        gamma_e = mu / (a * b) * (
-            1.0
-            - rotational_m
-            - rotational_m
-            * second_eccentricity
-            * q0_prime
-            / (6.0 * q0)
+        gamma_e = (
+            mu
+            / (a * b)
+            * (
+                1.0
+                - rotational_m
+                - rotational_m * second_eccentricity * q0_prime / (6.0 * q0)
+            )
         )
-        gamma_p = mu / (a * a) * (
-            1.0
-            + rotational_m
-            * second_eccentricity
-            * q0_prime
-            / (3.0 * q0)
+        gamma_p = (
+            mu
+            / (a * a)
+            * (1.0 + rotational_m * second_eccentricity * q0_prime / (3.0 * q0))
         )
         somigliana_k = b * gamma_p / (a * gamma_e) - 1.0
 
@@ -132,9 +134,7 @@ class SomiglianaNormalGravity:
 
         correction = (
             1.0
-            - 2.0
-            * (1.0 + f + m - 2.0 * f * sin_lat_squared)
-            * height_ratio
+            - 2.0 * (1.0 + f + m - 2.0 * f * sin_lat_squared) * height_ratio
             + 3.0 * height_ratio * height_ratio
         )
         return surface_gravity * correction
@@ -176,8 +176,7 @@ class InverseSquareGravity:
         radius = self.reference_radius_m + height
         if radius <= 0.0:
             raise ValueError(
-                "reference_radius_m + height_m must be > 0, "
-                f"got {radius!r}"
+                f"reference_radius_m + height_m must be > 0, got {radius!r}"
             )
         return self.gravitational_parameter_m3_s2 / (radius * radius)
 

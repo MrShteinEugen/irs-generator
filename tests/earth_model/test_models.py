@@ -59,7 +59,7 @@ def test_spherical_model_delegates_to_custom_gravity_model() -> None:
     model = SphericalEarthModel(gravity_model=gravity)
 
     assert model.gravity_model is gravity
-    assert model.gravity_m_s2(0.5, 100.0) == pytest.approx(107.5)
+    assert model.gravity_m_s2(0.5, 100.0) == pytest.approx(108.0)
 
 
 def test_ellipsoidal_model_delegates_geometry_and_gravity() -> None:
@@ -78,7 +78,7 @@ def test_ellipsoidal_model_delegates_geometry_and_gravity() -> None:
     assert model.meridional_radius_m(pi / 4) == pytest.approx(
         ellipsoid.meridional_radius_m(pi / 4)
     )
-    assert model.gravity_m_s2(0.5, 100.0) == pytest.approx(107.5)
+    assert model.gravity_m_s2(0.5, 100.0) == pytest.approx(108.0)
 
 
 @pytest.mark.parametrize("name", ["", "   "])

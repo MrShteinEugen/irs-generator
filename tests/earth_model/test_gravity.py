@@ -11,6 +11,7 @@ from irs_generator.earth_model.gravity import (
 )
 from irs_generator.earth_model.rotation import RotationParameters
 
+
 @pytest.fixture
 def wgs84_normal_gravity() -> SomiglianaNormalGravity:
     return SomiglianaNormalGravity(
@@ -88,7 +89,9 @@ def test_inverse_square_gravity_follows_inverse_square_law() -> None:
 
 
 @pytest.mark.parametrize("value", [0.0, -1.0, nan, inf, -inf])
-def test_inverse_square_gravity_rejects_invalid_constructor_values(value: float) -> None:
+def test_inverse_square_gravity_rejects_invalid_constructor_values(
+    value: float,
+) -> None:
     with pytest.raises(ValueError):
         InverseSquareGravity(value, 10.0)
     with pytest.raises(ValueError):
@@ -96,7 +99,9 @@ def test_inverse_square_gravity_rejects_invalid_constructor_values(value: float)
 
 
 @pytest.mark.parametrize("height_m", [-10.0, -11.0, nan, inf, -inf])
-def test_inverse_square_gravity_rejects_invalid_radius_or_height(height_m: float) -> None:
+def test_inverse_square_gravity_rejects_invalid_radius_or_height(
+    height_m: float,
+) -> None:
     gravity = InverseSquareGravity(100.0, 10.0)
     with pytest.raises(ValueError):
         gravity.gravity_m_s2(0.0, height_m)
