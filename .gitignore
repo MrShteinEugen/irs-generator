@@ -1,15 +1,61 @@
+# Local secrets and private notes
 .env
-.private
+.env.*
+.private/
+
+# Virtual environments and local tool installs
 .venv/
+venv/
+env/
 .tools/
+
+# Python caches and package metadata
 __pycache__/
 *.py[cod]
-*.sqlite3
+*.pyo
+*.pyd
 *.egg-info/
-data/
-.idea/
+.pytest_cache/
+.mypy_cache/
 .ruff_cache/
+
+# Test, coverage and build outputs
 .pytest-tmp/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+dist/
+build/
+
+# Local databases and debug exports
+*.sqlite3
+*.log
+*.tmp
+*.bak
+debug/
+exports/
+
+# Research data and generated artifacts
+data/
+research/
+notebooks/
+.ipynb_checkpoints/
+plots/
+reports/
 examples/full_flight/output/
+
+# IDE and local workspace metadata
+.idea/
+.vscode/
 .draw/
+.documentation/
+.package-check/
+
+# Provider-specific and simulator binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
 
