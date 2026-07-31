@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import cos, isfinite, sin, tan
+
+import numpy as np
 
 from irs_generator.earth_model import EarthModel, GeodeticPosition, WGS84EarthModel
 from irs_generator.gps_model import GnssSample
@@ -11,7 +12,8 @@ from irs_generator.navigation_model import (
     NavigationState,
     NavigationVelocity,
 )
-from irs_generator.utils.math import Vector3, _normalize_longitude
+from irs_generator.utils._validation import _positive_scalar, _validate_dt
+from irs_generator.utils.math import Scalar, Vector3, _normalize_longitude
 
 from .corrections import (
     CorrectionContext,
@@ -32,12 +34,26 @@ __all__ = ["DcmStrapdownINS", "MechanizationConfig", "StrapdownINS"]
 
 @dataclass(frozen=True, slots=True)
 class MechanizationConfig:
-    minimum_absolute_cos_latitude: float = 1e-8
+    """Numerical policy for DCM strapdown mechanization.
+
+    Parameters
+    ----------
+    minimum_absolute_cos_latitude
+        Lower bound for ``abs(cos(latitude))`` used to reject singular
+        longitude propagation near the poles.
+    normalize_longitude
+        Normalize propagated longitude to ``[-pi, pi)`` when ``True``.
+    """
+
+    minimum_absolute_cos_latitude: Scalar = 1e-8
     normalize_longitude: bool = True
 
     def __post_init__(self) -> None:
-        threshold = float(self.minimum_absolute_cos_latitude)
-        if not isfinite(threshold) or not 0.0 < threshold < 1.0:
+        threshold = _positive_scalar(
+            self.minimum_absolute_cos_latitude,
+            name="minimum_absolute_cos_latitude",
+        )
+        if threshold >= 1.0:
             raise ValueError(
                 "minimum_absolute_cos_latitude must be finite and in (0, 1)"
             )
@@ -45,7 +61,22 @@ class MechanizationConfig:
 
 
 class DcmStrapdownINS:
-    """ENU strapdown INS using a DCM form of Poisson attitude kinematics."""
+    """ENU strapdown INS using DCM Poisson attitude kinematics.
+
+    Parameters
+    ----------
+    initial_state
+        Initial navigation state.
+    earth_model
+        Earth model used for curvature, rotation and gravity. Defaults to WGS 84.
+    correction
+        Optional GNSS-aiding correction strategy.
+    attitude_integrator
+        DCM attitude propagation algorithm. Defaults to
+        :class:`LieGroupAttitudeIntegrator`.
+    config
+        Numerical policy for position propagation.
+    """
 
     __slots__ = (
         "_attitude_integrator",
@@ -91,12 +122,26 @@ class DcmStrapdownINS:
         return self._body_to_nav_dcm.copy()
 
     def reset(self, initial_state: NavigationState) -> None:
+        """Reset state, DCM attitude and correction strategy.
+
+        Parameters
+        ----------
+        initial_state
+            State that becomes the current INS state.
+        """
+
         self._state = initial_state
         self._body_to_nav_dcm = euler_to_dcm_body_to_nav(initial_state.attitude)
         self._correction.reset()
 
     def fork(self) -> DcmStrapdownINS:
-        """Return an independent copy for an inverse-synthesis trial step."""
+        """Return an independent copy for trial propagation.
+
+        Returns
+        -------
+        DcmStrapdownINS
+            Copy with the same state, DCM and correction state.
+        """
 
         clone = type(self)(
             self._state,
@@ -111,12 +156,27 @@ class DcmStrapdownINS:
     def step(
         self,
         imu_sample: ImuSample,
-        dt_s: float,
+        dt_s: Scalar,
         gnss_sample: GnssSample | None = None,
     ) -> NavigationState:
-        dt = float(dt_s)
-        if not isfinite(dt) or dt <= 0.0:
-            raise ValueError(f"dt_s must be finite and > 0, got {dt_s!r}")
+        """Propagate the INS by one IMU sample.
+
+        Parameters
+        ----------
+        imu_sample
+            Body-frame specific force and angular rate.
+        dt_s
+            Positive integration step in seconds.
+        gnss_sample
+            Optional GNSS sample for the configured correction strategy.
+
+        Returns
+        -------
+        NavigationState
+            Updated INS state.
+        """
+
+        dt = _validate_dt(dt_s)
 
         old_state = self._state
         specific_force_nav_array = (
@@ -177,7 +237,18 @@ class DcmStrapdownINS:
         return new_state
 
     def navigation_rate_rad_s(self, state: NavigationState) -> Vector3:
-        """Earth plus transport rate of the ENU navigation frame."""
+        """Return Earth plus transport rate of the ENU frame.
+
+        Parameters
+        ----------
+        state
+            Navigation state at which the rate is evaluated.
+
+        Returns
+        -------
+        Vector3
+            Navigation-frame angular rate in rad/s.
+        """
 
         velocity = state.velocity
         position = state.position
@@ -194,9 +265,9 @@ class DcmStrapdownINS:
         return Vector3(
             -velocity.north_m_s / meridional_radius,
             velocity.east_m_s / prime_vertical_radius
-            + self._earth_model.rotation.angular_velocity_rad_s * cos(latitude),
-            velocity.east_m_s / prime_vertical_radius * tan(latitude)
-            + self._earth_model.rotation.angular_velocity_rad_s * sin(latitude),
+            + self._earth_model.rotation.angular_velocity_rad_s * np.cos(latitude),
+            velocity.east_m_s / prime_vertical_radius * np.tan(latitude)
+            + self._earth_model.rotation.angular_velocity_rad_s * np.sin(latitude),
         )
 
     def _propagate_velocity(
@@ -206,13 +277,13 @@ class DcmStrapdownINS:
         navigation_rate: Vector3,
         acceleration_correction: Vector3,
         direct_velocity_delta: Vector3,
-        dt_s: float,
+        dt_s: Scalar,
     ) -> NavigationVelocity:
         velocity = state.velocity
         latitude = state.position.latitude_rad
         earth_rate = self._earth_model.rotation.angular_velocity_rad_s
-        sin_latitude = sin(latitude)
-        cos_latitude = cos(latitude)
+        sin_latitude = np.sin(latitude)
+        cos_latitude = np.cos(latitude)
         gravity = self._earth_model.gravity_m_s2(
             latitude,
             state.position.height_m,
@@ -249,7 +320,7 @@ class DcmStrapdownINS:
         state: NavigationState,
         rate_correction: Vector3,
         direct_position_delta: Vector3,
-        dt_s: float,
+        dt_s: Scalar,
     ) -> GeodeticPosition:
         velocity = state.velocity
         position = state.position
@@ -268,7 +339,7 @@ class DcmStrapdownINS:
             + dt_s * (latitude_rate + rate_correction.y)
             + direct_position_delta.y
         )
-        cos_latitude = cos(predicted_latitude)
+        cos_latitude = np.cos(predicted_latitude)
         if abs(cos_latitude) < self._config.minimum_absolute_cos_latitude:
             raise ValueError("longitude propagation is singular too close to a pole")
 

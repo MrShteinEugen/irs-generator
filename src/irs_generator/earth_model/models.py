@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from typing import ClassVar, Protocol, runtime_checkable
 
-from irs_generator.utils._validation import _positive_float, _validated_latitude
+import numpy as np
+
+from irs_generator.utils._validation import _positive_scalar, _validated_latitude
+from irs_generator.utils.math import Scalar
 
 from .geometry import ReferenceEllipsoid
 from .gravity import GravityModel, InverseSquareGravity, SomiglianaNormalGravity
@@ -33,31 +36,45 @@ class EarthModel(Protocol):
         """Return the gravity strategy."""
 
     @property
-    def mean_radius_m(self) -> float:
+    def mean_radius_m(self) -> Scalar:
         """Return the model's representative mean radius in metres."""
 
-    def meridional_radius_m(self, latitude_rad: float) -> float:
+    def meridional_radius_m(self, latitude_rad: Scalar) -> Scalar:
         """Return the meridional radius of curvature M in metres."""
 
-    def prime_vertical_radius_m(self, latitude_rad: float) -> float:
+    def prime_vertical_radius_m(self, latitude_rad: Scalar) -> Scalar:
         """Return the prime-vertical radius of curvature N in metres."""
 
     def gravity_m_s2(
         self,
-        latitude_rad: float,
-        height_m: float = 0.0,
-    ) -> float:
+        latitude_rad: Scalar,
+        height_m: Scalar = 0.0,
+    ) -> Scalar:
         """Return gravity according to the configured gravity strategy."""
 
 
 @dataclass(frozen=True, slots=True)
 class EllipsoidalEarthModel:
-    """Composable Earth model based on a reference ellipsoid."""
+    """Earth model composed from ellipsoid, rotation and gravity strategy.
+
+    Parameters
+    ----------
+    name
+        Human-readable model name.
+    ellipsoid
+        Reference ellipsoid used for curvature radii.
+    rotation
+        Earth rotation parameters.
+    gravitational_parameter_m3_s2
+        Geocentric gravitational constant ``GM`` in m³/s².
+    gravity_model
+        Gravity strategy used by :meth:`gravity_m_s2`.
+    """
 
     name: str
     ellipsoid: ReferenceEllipsoid
     rotation: RotationParameters
-    gravitational_parameter_m3_s2: float
+    gravitational_parameter_m3_s2: Scalar
     gravity_model: GravityModel
 
     def __post_init__(self) -> None:
@@ -66,7 +83,7 @@ class EllipsoidalEarthModel:
         object.__setattr__(
             self,
             "gravitational_parameter_m3_s2",
-            _positive_float(
+            _positive_scalar(
                 self.gravitational_parameter_m3_s2,
                 name="gravitational_parameter_m3_s2",
             ),
@@ -75,32 +92,32 @@ class EllipsoidalEarthModel:
             raise TypeError("gravity_model must implement GravityModel")
 
     @property
-    def mean_radius_m(self) -> float:
+    def mean_radius_m(self) -> np.longdouble:
         return self.ellipsoid.mean_radius_m
 
-    def meridional_radius_m(self, latitude_rad: float) -> float:
+    def meridional_radius_m(self, latitude_rad: Scalar) -> np.longdouble:
         return self.ellipsoid.meridional_radius_m(latitude_rad)
 
-    def prime_vertical_radius_m(self, latitude_rad: float) -> float:
+    def prime_vertical_radius_m(self, latitude_rad: Scalar) -> np.longdouble:
         return self.ellipsoid.prime_vertical_radius_m(latitude_rad)
 
     def gravity_m_s2(
         self,
-        latitude_rad: float,
-        height_m: float = 0.0,
-    ) -> float:
-        return self.gravity_model.gravity_m_s2(latitude_rad, height_m)
+        latitude_rad: Scalar,
+        height_m: Scalar = 0.0,
+    ) -> np.longdouble:
+        return np.longdouble(self.gravity_model.gravity_m_s2(latitude_rad, height_m))
 
 
 class WGS84EarthModel(EllipsoidalEarthModel):
-    """WGS 84 reference ellipsoid and its normal gravity field."""
+    """WGS 84 ellipsoidal Earth model with normal gravity."""
 
     __slots__ = ()
 
-    SEMI_MAJOR_AXIS_M: ClassVar[float] = 6_378_137.0
-    INVERSE_FLATTENING: ClassVar[float] = 298.257_223_563
-    GRAVITATIONAL_PARAMETER_M3_S2: ClassVar[float] = 3.986_004_418e14
-    ANGULAR_VELOCITY_RAD_S: ClassVar[float] = 7.292_115e-5
+    SEMI_MAJOR_AXIS_M: ClassVar[Scalar] = 6_378_137.0
+    INVERSE_FLATTENING: ClassVar[Scalar] = 298.257_223_563
+    GRAVITATIONAL_PARAMETER_M3_S2: ClassVar[Scalar] = 3.986_004_418e14
+    ANGULAR_VELOCITY_RAD_S: ClassVar[Scalar] = 7.292_115e-5
 
     def __init__(self) -> None:
         ellipsoid = ReferenceEllipsoid(
@@ -123,14 +140,14 @@ class WGS84EarthModel(EllipsoidalEarthModel):
 
 
 class GRS80EarthModel(EllipsoidalEarthModel):
-    """GRS 80 reference ellipsoid and its normal gravity field."""
+    """GRS 80 ellipsoidal Earth model with normal gravity."""
 
     __slots__ = ()
 
-    SEMI_MAJOR_AXIS_M: ClassVar[float] = 6_378_137.0
-    INVERSE_FLATTENING: ClassVar[float] = 298.257_222_101
-    GRAVITATIONAL_PARAMETER_M3_S2: ClassVar[float] = 3.986_005e14
-    ANGULAR_VELOCITY_RAD_S: ClassVar[float] = 7.292_115e-5
+    SEMI_MAJOR_AXIS_M: ClassVar[Scalar] = 6_378_137.0
+    INVERSE_FLATTENING: ClassVar[Scalar] = 298.257_222_101
+    GRAVITATIONAL_PARAMETER_M3_S2: ClassVar[Scalar] = 3.986_005e14
+    ANGULAR_VELOCITY_RAD_S: ClassVar[Scalar] = 7.292_115e-5
 
     def __init__(self) -> None:
         ellipsoid = ReferenceEllipsoid(
@@ -156,34 +173,46 @@ class GRS80EarthModel(EllipsoidalEarthModel):
 class SphericalEarthModel:
     """Configurable spherical Earth approximation.
 
-    By default, it uses the IUGG-style mean radius and a central inverse-square
-    gravity field based on the WGS 84 gravitational parameter.
+    Parameters
+    ----------
+    name
+        Human-readable model name.
+    radius_m
+        Spherical Earth radius in metres.
+    gravitational_parameter_m3_s2
+        Geocentric gravitational constant ``GM`` in m³/s².
+    angular_velocity_rad_s
+        Earth angular velocity in radians per second.
+    gravity_model
+        Optional gravity strategy. If omitted, inverse-square gravity is used.
     """
 
-    DEFAULT_RADIUS_M: ClassVar[float] = 6_371_008.8
-    DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2: ClassVar[float] = 3.986_004_418e14
-    DEFAULT_ANGULAR_VELOCITY_RAD_S: ClassVar[float] = 7.292_115e-5
+    DEFAULT_RADIUS_M: ClassVar[Scalar] = 6_371_008.8
+    DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2: ClassVar[Scalar] = 3.986_004_418e14
+    DEFAULT_ANGULAR_VELOCITY_RAD_S: ClassVar[Scalar] = 7.292_115e-5
 
     name: str
-    radius_m: float
+    radius_m: Scalar
     rotation: RotationParameters
-    gravitational_parameter_m3_s2: float
+    gravitational_parameter_m3_s2: Scalar
     gravity_model: GravityModel
 
     def __init__(
         self,
         *,
         name: str = "Mean spherical Earth",
-        radius_m: float = DEFAULT_RADIUS_M,
-        gravitational_parameter_m3_s2: float = (DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2),
-        angular_velocity_rad_s: float = DEFAULT_ANGULAR_VELOCITY_RAD_S,
+        radius_m: Scalar = DEFAULT_RADIUS_M,
+        gravitational_parameter_m3_s2: Scalar = (
+            DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2
+        ),
+        angular_velocity_rad_s: Scalar = DEFAULT_ANGULAR_VELOCITY_RAD_S,
         gravity_model: GravityModel | None = None,
     ) -> None:
         if not name.strip():
             raise ValueError("name must not be empty")
 
-        radius = _positive_float(radius_m, name="radius_m")
-        mu = _positive_float(
+        radius = _positive_scalar(radius_m, name="radius_m")
+        mu = _positive_scalar(
             gravitational_parameter_m3_s2,
             name="gravitational_parameter_m3_s2",
         )
@@ -206,20 +235,20 @@ class SphericalEarthModel:
         object.__setattr__(self, "gravity_model", selected_gravity_model)
 
     @property
-    def mean_radius_m(self) -> float:
-        return self.radius_m
+    def mean_radius_m(self) -> np.longdouble:
+        return np.longdouble(self.radius_m)
 
-    def meridional_radius_m(self, latitude_rad: float) -> float:
+    def meridional_radius_m(self, latitude_rad: Scalar) -> np.longdouble:
         _validated_latitude(latitude_rad)
-        return self.radius_m
+        return np.longdouble(self.radius_m)
 
-    def prime_vertical_radius_m(self, latitude_rad: float) -> float:
+    def prime_vertical_radius_m(self, latitude_rad: Scalar) -> np.longdouble:
         _validated_latitude(latitude_rad)
-        return self.radius_m
+        return np.longdouble(self.radius_m)
 
     def gravity_m_s2(
         self,
-        latitude_rad: float,
-        height_m: float = 0.0,
-    ) -> float:
-        return self.gravity_model.gravity_m_s2(latitude_rad, height_m)
+        latitude_rad: Scalar,
+        height_m: Scalar = 0.0,
+    ) -> np.longdouble:
+        return np.longdouble(self.gravity_model.gravity_m_s2(latitude_rad, height_m))

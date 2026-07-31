@@ -1,27 +1,36 @@
 from dataclasses import dataclass
-from math import pi
 
 import numpy as np
 
-from irs_generator.utils._validation import _finite_float
-from irs_generator.utils.math import VectorArray
+from irs_generator.utils._validation import _finite_scalar
+from irs_generator.utils.math import Scalar, VectorArray
 
 __all__ = ["GeodeticPosition"]
 
 
 @dataclass(frozen=True, slots=True)
 class GeodeticPosition:
-    """Longitude, geodetic latitude and ellipsoidal height."""
+    """Geodetic position on an Earth reference surface.
 
-    longitude_rad: float
-    latitude_rad: float
-    height_m: float
+    Parameters
+    ----------
+    longitude_rad
+        Longitude in radians.
+    latitude_rad
+        Geodetic latitude in radians. Must be in ``[-pi/2, pi/2]``.
+    height_m
+        Ellipsoidal height in metres.
+    """
+
+    longitude_rad: Scalar
+    latitude_rad: Scalar
+    height_m: Scalar
 
     def __post_init__(self) -> None:
-        longitude = _finite_float(self.longitude_rad, "longitude_rad")
-        latitude = _finite_float(self.latitude_rad, "latitude_rad")
-        height = _finite_float(self.height_m, "height_m")
-        if not -pi / 2.0 <= latitude <= pi / 2.0:
+        longitude = _finite_scalar(self.longitude_rad, "longitude_rad")
+        latitude = _finite_scalar(self.latitude_rad, "latitude_rad")
+        height = _finite_scalar(self.height_m, "height_m")
+        if not -np.longdouble(np.pi / 2.0) <= latitude <= np.longdouble(np.pi / 2.0):
             raise ValueError("latitude_rad must be in [-pi/2, pi/2]")
         object.__setattr__(self, "longitude_rad", longitude)
         object.__setattr__(self, "latitude_rad", latitude)
@@ -29,8 +38,21 @@ class GeodeticPosition:
 
     def as_array(
         self,
-        dtype: np.dtype[np.float64] | type[np.float64] = np.float64,
+        dtype: np.dtype[np.longdouble] | type[np.longdouble] = np.longdouble,
     ) -> VectorArray:
+        """Return position as ``(longitude_rad, latitude_rad, height_m)``.
+
+        Parameters
+        ----------
+        dtype
+            Numeric dtype for the returned array. Defaults to ``np.longdouble``.
+
+        Returns
+        -------
+        numpy.ndarray
+            New array containing longitude, latitude and height.
+        """
+
         if not np.issubdtype(np.dtype(dtype), np.number):
             raise TypeError(f"dtype must be a numeric type, got {dtype!r}")
 

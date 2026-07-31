@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from irs_generator.irs_model import ImuSample, InertialNavigationAlgorithm
 from irs_generator.navigation_model import NavigationState
+from irs_generator.utils.math import Scalar
 
 from .models import GeneratedStep, GenerationDiagnostics, TargetTrajectoryPoint
 from .solver import StepSolverConfig, solve_imu_step
@@ -16,14 +17,31 @@ __all__ = ["GenerationConfig", "SyntheticDataGenerator"]
 
 @dataclass(frozen=True, slots=True)
 class GenerationConfig:
-    """Policy controlling streaming inverse synthesis."""
+    """Policy controlling streaming inverse synthesis.
+
+    Parameters
+    ----------
+    solver
+        Numerical settings for one-step inverse IMU solving.
+    fail_on_nonconvergence
+        Raise ``RuntimeError`` when the solver does not converge if ``True``.
+    """
 
     solver: StepSolverConfig = field(default_factory=StepSolverConfig)
     fail_on_nonconvergence: bool = True
 
 
 class SyntheticDataGenerator:
-    """Generate ideal IMU and self-consistent GPS truth one row at a time."""
+    """Generate ideal IMU and self-consistent GNSS truth.
+
+    Parameters
+    ----------
+    algorithm
+        Inertial navigation algorithm used inside the inverse synthesis loop.
+        It must support ``fork()``.
+    config
+        Optional generation and solver policy.
+    """
 
     def __init__(
         self,
@@ -40,6 +58,29 @@ class SyntheticDataGenerator:
         self,
         points: Iterable[TargetTrajectoryPoint],
     ) -> Iterator[GeneratedStep]:
+        """Generate rows from a target trajectory.
+
+        Parameters
+        ----------
+        points
+            Iterable of target trajectory points. The first point must include
+            position and initializes the navigation algorithm.
+
+        Yields
+        ------
+        GeneratedStep
+            Generated IMU sample and the aligned navigation state.
+
+        Raises
+        ------
+        ValueError
+            If fewer than two points are provided or the first point has no
+            position.
+        RuntimeError
+            If a step does not converge and ``fail_on_nonconvergence`` is
+            enabled.
+        """
+
         iterator = iter(points)
         initial = next(iterator, None)
         if initial is None:
@@ -62,7 +103,7 @@ class SyntheticDataGenerator:
         previous_guess: ImuSample | None = None
         first_step = True
         while True:
-            dt_s = next_point.time_s - previous_point.time_s
+            dt_s: Scalar = next_point.time_s - previous_point.time_s
             solution = solve_imu_step(
                 self._algorithm,
                 next_point,

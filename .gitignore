@@ -10,5 +10,6 @@ data/
 .idea/
 .ruff_cache/
 .pytest-tmp/
+examples/full_flight/output/
 .draw/
 

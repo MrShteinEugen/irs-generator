@@ -16,7 +16,7 @@ from irs_generator.navigation_model import (
     NavigationState,
     NavigationVelocity,
 )
-from irs_generator.utils.math import Vector3
+from irs_generator.utils.math import Scalar, Vector3
 
 
 def _initial_state() -> NavigationState:
@@ -31,7 +31,7 @@ def _initial_state() -> NavigationState:
 class RecordingAlgorithm:
     state: NavigationState
     received_sample: ImuSample | None = None
-    received_dt_s: float | None = None
+    received_dt_s: Scalar | None = None
     reset_calls: int = 0
 
     def reset(self, initial_state: NavigationState) -> None:
@@ -41,7 +41,7 @@ class RecordingAlgorithm:
     def step(
         self,
         imu_sample: ImuSample,
-        dt_s: float,
+        dt_s: Scalar,
         gnss_sample: object | None = None,
     ) -> NavigationState:
         del gnss_sample
@@ -54,7 +54,7 @@ class RecordingAlgorithm:
 class ResettableErrorModel:
     reset_calls: int = 0
 
-    def apply(self, sample: ImuSample, dt_s: float) -> ImuSample:
+    def apply(self, sample: ImuSample, dt_s: Scalar) -> ImuSample:
         del dt_s
         return sample
 

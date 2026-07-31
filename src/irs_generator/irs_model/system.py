@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from math import isfinite
-
 from irs_generator.gps_model import GnssSample
 from irs_generator.navigation_model import NavigationState
+from irs_generator.utils._validation import _validate_dt
+from irs_generator.utils.math import Scalar
 
 from .algorithm import NavigationAlgorithm
 from .error_model import IdealImuErrorModel, ImuErrorModel
@@ -17,10 +17,13 @@ __all__ = ["InertialReferenceSystem"]
 class InertialReferenceSystem:
     """IRS composed of a navigation algorithm and an IMU error model.
 
-    The system accepts ideal samples from a scenario generator, applies the
-    configured sensor-error model, and passes the resulting observation to the
-    selected navigation algorithm. Alternative algorithms therefore reuse the
-    same IMU and error-model infrastructure.
+    Parameters
+    ----------
+    algorithm
+        Navigation algorithm that integrates observed IMU samples.
+    imu_error_model
+        Sensor-error model applied before the sample reaches ``algorithm``.
+        If omitted, an ideal error-free model is used.
     """
 
     __slots__ = ("_algorithm", "_imu_error_model")
@@ -54,17 +57,40 @@ class InertialReferenceSystem:
         return self._imu_error_model
 
     def reset(self, initial_state: NavigationState) -> None:
+        """Reset both navigation algorithm and IMU error model.
+
+        Parameters
+        ----------
+        initial_state
+            State passed to the navigation algorithm.
+        """
+
         self._algorithm.reset(initial_state)
         self._imu_error_model.reset()
 
     def step(
         self,
         ideal_imu_sample: ImuSample,
-        dt_s: float,
+        dt_s: Scalar,
         gnss_sample: GnssSample | None = None,
     ) -> NavigationState:
-        dt = float(dt_s)
-        if not isfinite(dt) or dt <= 0.0:
-            raise ValueError(f"dt_s must be finite and > 0, got {dt_s!r}")
+        """Advance the IRS by one sample.
+
+        Parameters
+        ----------
+        ideal_imu_sample
+            Error-free IMU sample produced by a scenario or generator.
+        dt_s
+            Positive time step in seconds.
+        gnss_sample
+            Optional GNSS sample for aided algorithms.
+
+        Returns
+        -------
+        NavigationState
+            State returned by the wrapped navigation algorithm.
+        """
+
+        dt = _validate_dt(dt_s)
         observed_sample = self._imu_error_model.apply(ideal_imu_sample, dt)
         return self._algorithm.step(observed_sample, dt, gnss_sample)

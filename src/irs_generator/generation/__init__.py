@@ -1,6 +1,11 @@
 """Streaming synthesis of ideal IMU and GNSS data from target motion."""
 
-from .formats import CsvOutputFormat, LegacyDatFormat
+from .dcm import (
+    DcmTrajectoryGenerator,
+    DcmTrajectoryPoint,
+    DcmTrajectoryReader,
+)
+from .formats import CsvOutputFormat, DatOutputFormat
 from .generator import GenerationConfig, SyntheticDataGenerator
 from .io import CsvOutputWriter, CsvTrajectoryReader, CsvTrajectorySchema
 from .models import GeneratedStep, GenerationDiagnostics, TargetTrajectoryPoint
@@ -11,10 +16,13 @@ __all__ = [
     "CsvOutputFormat",
     "CsvTrajectoryReader",
     "CsvTrajectorySchema",
+    "DatOutputFormat",
+    "DcmTrajectoryGenerator",
+    "DcmTrajectoryPoint",
+    "DcmTrajectoryReader",
     "GeneratedStep",
     "GenerationConfig",
     "GenerationDiagnostics",
-    "LegacyDatFormat",
     "TargetTrajectoryPoint",
     "SyntheticDataGenerator",
     "StepSolverConfig",

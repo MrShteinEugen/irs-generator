@@ -14,6 +14,7 @@ from irs_generator.navigation_model import (
     NavigationState,
     NavigationVelocity,
 )
+from irs_generator.utils.math import Scalar
 
 
 @dataclass
@@ -31,7 +32,7 @@ class LinearNavigationAlgorithm:
     def step(
         self,
         imu_sample: ImuSample,
-        dt_s: float,
+        dt_s: Scalar,
         gnss_sample: object | None = None,
     ) -> NavigationState:
         del dt_s, gnss_sample

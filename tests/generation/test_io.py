@@ -37,7 +37,7 @@ def test_reader_requires_position_only_in_the_first_data_row(tmp_path: Path) -> 
     assert points[1].velocity.east_m_s == 4.0
 
 
-def test_legacy_writer_streams_imu_gps_and_debug_rows(tmp_path: Path) -> None:
+def test_dat_writer_streams_imu_gps_and_debug_rows(tmp_path: Path) -> None:
     state = NavigationState(
         velocity=NavigationVelocity(1.0, 2.0, 3.0),
         position=GeodeticPosition(0.5, 0.25, 100.0),

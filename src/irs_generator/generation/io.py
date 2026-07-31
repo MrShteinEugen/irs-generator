@@ -1,18 +1,20 @@
-"""Streaming CSV adapters for prepared trajectories and legacy outputs."""
+"""Streaming CSV adapters for prepared trajectories and generated outputs."""
 
 from __future__ import annotations
 
 import csv
 from collections.abc import Iterator
 from dataclasses import dataclass
-from math import degrees, isclose, isfinite
 from pathlib import Path
 from typing import TextIO
 
+import numpy as np
+
 from irs_generator.earth_model import GeodeticPosition
 from irs_generator.navigation_model import EulerAngles, NavigationVelocity
+from irs_generator.utils.math import Scalar
 
-from .formats import CsvOutputFormat, LegacyDatFormat
+from .formats import CsvOutputFormat, DatOutputFormat
 from .models import GeneratedStep, TargetTrajectoryPoint
 
 __all__ = ["CsvOutputWriter", "CsvTrajectoryReader", "CsvTrajectorySchema"]
@@ -20,7 +22,26 @@ __all__ = ["CsvOutputWriter", "CsvTrajectoryReader", "CsvTrajectorySchema"]
 
 @dataclass(frozen=True, slots=True)
 class CsvTrajectorySchema:
-    """Column mapping for the prepared generic trajectory CSV format."""
+    """Column mapping and validation policy for prepared trajectory CSV.
+
+    Parameters
+    ----------
+    time_s
+        Timestamp column name.
+    latitude_deg, longitude_deg, height_m
+        Position column names. Angles are read in degrees.
+    pitch_rad, roll_rad, heading_rad
+        Attitude column names in radians.
+    velocity_east_m_s, velocity_north_m_s, velocity_up_m_s
+        ENU velocity column names in metres per second.
+    retain_position_after_initial
+        Keep position in every yielded point when ``True``. When ``False``,
+        only the first point carries position.
+    require_uniform_time_step
+        Validate that all time steps match the first step when ``True``.
+    time_step_absolute_tolerance_s, time_step_relative_tolerance
+        Absolute and relative tolerances used for uniform time-step validation.
+    """
 
     time_s: str = "t_meas_s"
     latitude_deg: str = "lat_deg"
@@ -32,17 +53,18 @@ class CsvTrajectorySchema:
     velocity_east_m_s: str = "v_e_mps"
     velocity_north_m_s: str = "v_n_mps"
     velocity_up_m_s: str = "v_u_mps"
+    retain_position_after_initial: bool = False
     require_uniform_time_step: bool = True
-    time_step_absolute_tolerance_s: float = 1e-9
-    time_step_relative_tolerance: float = 1e-6
+    time_step_absolute_tolerance_s: Scalar = 1e-9
+    time_step_relative_tolerance: Scalar = 1e-6
 
     def __post_init__(self) -> None:
         for column in self.required_columns:
             if not isinstance(column, str) or not column.strip():
                 raise ValueError("trajectory column names must be non-empty strings")
         for name in ("time_step_absolute_tolerance_s", "time_step_relative_tolerance"):
-            value = float(getattr(self, name))
-            if not isfinite(value) or value < 0.0:
+            value = np.longdouble(getattr(self, name))
+            if not bool(np.isfinite(value)) or value < 0.0:
                 raise ValueError(f"{name} must be finite and >= 0")
             object.__setattr__(self, name, value)
         if len(set(self.required_columns)) != len(self.required_columns):
@@ -65,7 +87,15 @@ class CsvTrajectorySchema:
 
 
 class CsvTrajectoryReader:
-    """Read prepared target points one at a time without buffering a CSV."""
+    """Stream prepared target points from a CSV file.
+
+    Parameters
+    ----------
+    path
+        Path to the input CSV file.
+    schema
+        Optional column mapping and validation policy.
+    """
 
     def __init__(
         self,
@@ -86,13 +116,16 @@ class CsvTrajectoryReader:
                 names = ", ".join(sorted(missing))
                 raise ValueError(f"trajectory CSV is missing columns: {names}")
 
-            previous_time_s: float | None = None
-            reference_time_step_s: float | None = None
+            previous_time_s: np.longdouble | None = None
+            reference_time_step_s: np.longdouble | None = None
             for row_number, row in enumerate(reader, start=2):
                 point = self._parse_row(
                     row,
                     row_number,
-                    require_position=previous_time_s is None,
+                    require_position=(
+                        previous_time_s is None
+                        or self._schema.retain_position_after_initial
+                    ),
                 )
                 if previous_time_s is not None and point.time_s <= previous_time_s:
                     raise ValueError(
@@ -100,21 +133,23 @@ class CsvTrajectoryReader:
                         f"row {row_number} is invalid"
                     )
                 if previous_time_s is not None:
-                    time_step_s = point.time_s - previous_time_s
+                    time_step_s = np.longdouble(point.time_s - previous_time_s)
                     if reference_time_step_s is None:
                         reference_time_step_s = time_step_s
-                    elif self._schema.require_uniform_time_step and not isclose(
-                        time_step_s,
-                        reference_time_step_s,
-                        rel_tol=self._schema.time_step_relative_tolerance,
-                        abs_tol=self._schema.time_step_absolute_tolerance_s,
+                    elif self._schema.require_uniform_time_step and not bool(
+                        np.isclose(
+                            time_step_s,
+                            reference_time_step_s,
+                            rtol=self._schema.time_step_relative_tolerance,
+                            atol=self._schema.time_step_absolute_tolerance_s,
+                        )
                     ):
                         raise ValueError(
                             "time grid must be uniform; "
                             f"row {row_number} has dt={time_step_s:.12g}s, "
                             f"expected {reference_time_step_s:.12g}s"
                         )
-                previous_time_s = point.time_s
+                previous_time_s = np.longdouble(point.time_s)
                 yield point
 
     def _parse_row(
@@ -134,23 +169,23 @@ class CsvTrajectoryReader:
                     latitude_rad=_degrees_to_radians(
                         _required(row, schema.latitude_deg)
                     ),
-                    height_m=float(_required(row, schema.height_m)),
+                    height_m=np.longdouble(_required(row, schema.height_m)),
                 )
                 if require_position
                 else None
             )
             return TargetTrajectoryPoint(
-                time_s=float(_required(row, schema.time_s)),
+                time_s=np.longdouble(_required(row, schema.time_s)),
                 position=position,
                 velocity=NavigationVelocity(
-                    east_m_s=float(_required(row, schema.velocity_east_m_s)),
-                    north_m_s=float(_required(row, schema.velocity_north_m_s)),
-                    up_m_s=float(_required(row, schema.velocity_up_m_s)),
+                    east_m_s=np.longdouble(_required(row, schema.velocity_east_m_s)),
+                    north_m_s=np.longdouble(_required(row, schema.velocity_north_m_s)),
+                    up_m_s=np.longdouble(_required(row, schema.velocity_up_m_s)),
                 ),
                 attitude=EulerAngles(
-                    pitch_rad=float(_required(row, schema.pitch_rad)),
-                    roll_rad=float(_required(row, schema.roll_rad)),
-                    heading_rad=float(_required(row, schema.heading_rad)),
+                    pitch_rad=np.longdouble(_required(row, schema.pitch_rad)),
+                    roll_rad=np.longdouble(_required(row, schema.roll_rad)),
+                    heading_rad=np.longdouble(_required(row, schema.heading_rad)),
                 ),
             )
         except (TypeError, ValueError) as error:
@@ -158,7 +193,18 @@ class CsvTrajectoryReader:
 
 
 class CsvOutputWriter:
-    """Write IMU, GPS, and optional diagnostics rows as they are generated."""
+    """Write generated IMU, GNSS and optional diagnostic rows.
+
+    Parameters
+    ----------
+    output_dir
+        Directory where output files are created.
+    format
+        Output file names, units, headers and delimiter. Defaults to
+        :class:`DatOutputFormat`.
+    debug_path
+        Optional CSV path for solver diagnostics.
+    """
 
     def __init__(
         self,
@@ -167,7 +213,7 @@ class CsvOutputWriter:
         format: CsvOutputFormat | None = None,
         debug_path: str | Path | None = None,
     ) -> None:
-        self._format = format if format is not None else LegacyDatFormat()
+        self._format = format if format is not None else DatOutputFormat()
         self._output_dir = Path(output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._imu_file = (self._output_dir / self._format.imu_filename).open(
@@ -191,6 +237,14 @@ class CsvOutputWriter:
                 )
 
     def write(self, step: GeneratedStep) -> None:
+        """Write one generated row to all configured streams.
+
+        Parameters
+        ----------
+        step
+            Generated sample, navigation state and diagnostics.
+        """
+
         acceleration = step.imu_sample.specific_force_body_m_s2
         angular_rate = step.imu_sample.angular_rate_body_rad_s
         state = step.navigation_state
@@ -235,6 +289,8 @@ class CsvOutputWriter:
             )
 
     def close(self) -> None:
+        """Close all open output files."""
+
         self._imu_file.close()
         self._gps_file.close()
         if self._debug_file is not None:
@@ -254,18 +310,27 @@ def _required(row: dict[str, str | None], column: str) -> str:
     return value
 
 
-def _degrees_to_radians(value: str) -> float:
-    from math import radians
-
-    return radians(float(value))
+def _degrees_to_radians(value: str) -> np.longdouble:
+    return np.longdouble(np.deg2rad(np.longdouble(value)))
 
 
-def _angular_rate_for_output(value_rad_s: float, format: CsvOutputFormat) -> float:
-    return degrees(value_rad_s) if format.angular_rate_unit == "deg/s" else value_rad_s
+def _angular_rate_for_output(
+    value_rad_s: Scalar,
+    format: CsvOutputFormat,
+) -> Scalar:
+    return (
+        np.rad2deg(np.longdouble(value_rad_s))
+        if format.angular_rate_unit == "deg/s"
+        else value_rad_s
+    )
 
 
-def _geographic_angle_for_output(value_rad: float, format: CsvOutputFormat) -> float:
-    return degrees(value_rad) if format.geographic_angle_unit == "deg" else value_rad
+def _geographic_angle_for_output(value_rad: Scalar, format: CsvOutputFormat) -> Scalar:
+    return (
+        np.rad2deg(np.longdouble(value_rad))
+        if format.geographic_angle_unit == "deg"
+        else value_rad
+    )
 
 
 def _open_debug_file(path: str | Path) -> TextIO:

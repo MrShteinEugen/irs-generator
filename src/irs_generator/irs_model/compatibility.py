@@ -1,4 +1,4 @@
-"""Structural adapters for migration from the original record classes."""
+"""Structural adapters for external record classes."""
 
 from __future__ import annotations
 
@@ -19,7 +19,19 @@ __all__ = [
 
 
 def navigation_state_from_legacy(record: Any) -> NavigationState:
-    """Convert an object exposing the original NavigationRecord attributes."""
+    """Convert a navigation record object to :class:`NavigationState`.
+
+    Parameters
+    ----------
+    record
+        Object exposing velocity, coordinate, attitude and correction fields
+        with the expected external attribute names.
+
+    Returns
+    -------
+    NavigationState
+        Converted navigation state.
+    """
 
     return NavigationState.from_components(
         record.velocity_east_x_m_per_s,
@@ -36,7 +48,19 @@ def navigation_state_from_legacy(record: Any) -> NavigationState:
 
 
 def gnss_sample_from_legacy(record: Any) -> GnssSample:
-    """Convert an original GPS NavigationRecord into a GNSS sample."""
+    """Convert a navigation record object to :class:`GnssSample`.
+
+    Parameters
+    ----------
+    record
+        Object exposing velocity, coordinate and validity fields with the
+        expected external attribute names.
+
+    Returns
+    -------
+    GnssSample
+        Converted GNSS sample.
+    """
 
     return GnssSample.from_components(
         record.velocity_east_x_m_per_s,
@@ -50,7 +74,19 @@ def gnss_sample_from_legacy(record: Any) -> GnssSample:
 
 
 def imu_sample_from_legacy(record: Any) -> ImuSample:
-    """Convert an object exposing the original IMURecord attributes."""
+    """Convert an IMU record object to :class:`ImuSample`.
+
+    Parameters
+    ----------
+    record
+        Object exposing body-frame accelerometer and gyroscope fields with the
+        expected external attribute names.
+
+    Returns
+    -------
+    ImuSample
+        Converted IMU sample.
+    """
 
     return ImuSample.from_components(
         record.acc_body_x,
@@ -66,7 +102,21 @@ def navigation_state_to_legacy(
     state: NavigationState,
     record_factory: Callable[..., Any],
 ) -> Any:
-    """Create an old-style record without importing the legacy package."""
+    """Create an external navigation record from a state.
+
+    Parameters
+    ----------
+    state
+        Navigation state to convert.
+    record_factory
+        Callable receiving velocity, position, attitude and correction flag
+        components.
+
+    Returns
+    -------
+    Any
+        Object returned by ``record_factory``.
+    """
 
     return record_factory(
         state.velocity.east_m_s,

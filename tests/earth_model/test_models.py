@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from math import inf, nan, pi
 
+import numpy as np
 import pytest
 
 from irs_generator.earth_model import (
@@ -12,14 +13,19 @@ from irs_generator.earth_model import (
     SphericalEarthModel,
     WGS84EarthModel,
 )
+from irs_generator.utils.math import Scalar
 
 
 @dataclass(frozen=True)
 class RecordingGravity:
     value_m_s2: float = 7.5
 
-    def gravity_m_s2(self, latitude_rad: float, height_m: float = 0.0) -> float:
-        return self.value_m_s2 + latitude_rad + height_m
+    def gravity_m_s2(
+        self,
+        latitude_rad: Scalar,
+        height_m: Scalar = 0.0,
+    ) -> Scalar:
+        return np.longdouble(self.value_m_s2 + latitude_rad + height_m)
 
 
 def test_wgs84_model_has_expected_components_and_reference_gravity() -> None:

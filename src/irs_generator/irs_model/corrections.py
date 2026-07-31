@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from math import cos, isfinite, radians
 from typing import Protocol, Self
 
 import numpy as np
@@ -14,8 +13,8 @@ from irs_generator.gps_model.gnss import GnssSample
 from irs_generator.irs_model.imu import ImuSample
 from irs_generator.irs_model.rotation import Matrix3
 from irs_generator.navigation_model.navigation import NavigationState
-from irs_generator.utils._validation import _non_negative
-from irs_generator.utils.math import Vector3, angle_difference_rad
+from irs_generator.utils._validation import _non_negative_scalar, _validate_dt
+from irs_generator.utils.math import Scalar, Vector3, angle_difference_rad
 
 __all__ = [
     "CompositeCorrection",
@@ -36,6 +35,28 @@ __all__ = [
 
 @dataclass(frozen=True, slots=True)
 class CorrectionContext:
+    """Inputs available to one aiding-correction strategy.
+
+    Parameters
+    ----------
+    imu
+        IMU sample being integrated.
+    ins_state
+        Current INS state before propagation.
+    gnss_sample
+        Optional GNSS sample for this step.
+    body_to_nav_dcm
+        Current DCM from body axes to navigation axes.
+    specific_force_nav_m_s2
+        IMU specific force transformed to the navigation frame.
+    base_navigation_rate_rad_s
+        Earth plus transport rate before correction.
+    earth_model
+        Earth model used by the mechanization.
+    dt_s
+        Positive time step in seconds.
+    """
+
     imu: ImuSample
     ins_state: NavigationState
     gnss_sample: GnssSample | None
@@ -43,13 +64,11 @@ class CorrectionContext:
     specific_force_nav_m_s2: Vector3
     base_navigation_rate_rad_s: Vector3
     earth_model: EarthModel
-    dt_s: float
+    dt_s: Scalar
 
     def __post_init__(self) -> None:
-        dt = float(self.dt_s)
-        if not isfinite(dt) or dt <= 0.0:
-            raise ValueError("dt_s must be finite and > 0")
-        matrix = np.array(self.body_to_nav_dcm, dtype=np.float64, copy=True)
+        dt = _validate_dt(self.dt_s)
+        matrix = np.array(self.body_to_nav_dcm, dtype=np.longdouble, copy=True)
         if matrix.shape != (3, 3):
             raise ValueError("body_to_nav_dcm must have shape (3, 3)")
         if not np.all(np.isfinite(matrix)):
@@ -61,7 +80,26 @@ class CorrectionContext:
 
 @dataclass(frozen=True, slots=True)
 class CorrectionOutput:
-    """Additive corrections applied during one mechanization step."""
+    """Additive corrections applied during one mechanization step.
+
+    Parameters
+    ----------
+    navigation_rate_rad_s
+        Correction added to the navigation-frame rate used for velocity and
+        attitude propagation.
+    attitude_only_rate_rad_s
+        Correction added only to attitude propagation.
+    acceleration_nav_m_s2
+        Additive acceleration in navigation axes.
+    velocity_delta_nav_m_s
+        Direct velocity increment in navigation axes.
+    position_rate_lon_lat_height
+        Additive position-rate correction ``(lon, lat, height)``.
+    position_delta_lon_lat_height
+        Direct position increment ``(lon, lat, height)``.
+    applied
+        Whether a strategy applied a non-empty correction.
+    """
 
     navigation_rate_rad_s: Vector3 = field(default_factory=Vector3.zero)
     attitude_only_rate_rad_s: Vector3 = field(default_factory=Vector3.zero)
@@ -98,8 +136,21 @@ class CorrectionOutput:
 
 
 class CorrectionStrategy(Protocol):
+    """Stateful correction strategy used by the INS mechanization."""
+
     def compute(self, context: CorrectionContext) -> CorrectionOutput:
-        """Compute corrections for the current step."""
+        """Compute corrections for the current step.
+
+        Parameters
+        ----------
+        context
+            Current mechanization inputs.
+
+        Returns
+        -------
+        CorrectionOutput
+            Additive corrections for the step.
+        """
 
     def reset(self) -> None:
         """Reset state retained by the strategy."""
@@ -109,6 +160,8 @@ class CorrectionStrategy(Protocol):
 
 
 class NoCorrection:
+    """Correction strategy that leaves the mechanization unchanged."""
+
     __slots__ = ()
 
     @staticmethod
@@ -127,6 +180,14 @@ class NoCorrection:
 
 @dataclass(slots=True)
 class CompositeCorrection:
+    """Apply several correction strategies in sequence.
+
+    Parameters
+    ----------
+    strategies
+        Correction strategies to evaluate for each mechanization step.
+    """
+
     strategies: Sequence[CorrectionStrategy]
 
     def __post_init__(self) -> None:
@@ -155,19 +216,32 @@ class CompositeCorrection:
 
 @dataclass(frozen=True, slots=True)
 class VelocityAidingConfig:
-    velocity_error_gain_per_s: float = 0.9
-    transport_rate_gain: float = 650.0
+    """Configuration for horizontal GNSS velocity aiding.
+
+    Parameters
+    ----------
+    velocity_error_gain_per_s
+        Gain applied to horizontal velocity error.
+    transport_rate_gain
+        Gain applied to transport-rate feedback.
+    """
+
+    velocity_error_gain_per_s: Scalar = 0.9
+    transport_rate_gain: Scalar = 650.0
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self,
             "velocity_error_gain_per_s",
-            _non_negative(self.velocity_error_gain_per_s, "velocity_error_gain_per_s"),
+            _non_negative_scalar(
+                self.velocity_error_gain_per_s,
+                "velocity_error_gain_per_s",
+            ),
         )
         object.__setattr__(
             self,
             "transport_rate_gain",
-            _non_negative(self.transport_rate_gain, "transport_rate_gain"),
+            _non_negative_scalar(self.transport_rate_gain, "transport_rate_gain"),
         )
 
 
@@ -175,9 +249,10 @@ class VelocityAidingConfig:
 class VelocityAidingCorrection:
     """Horizontal GNSS velocity aiding.
 
-    The refactor treats both horizontal feedback terms as accelerations, so
-    both are integrated consistently with ``dt``. This fixes the asymmetric
-    time scaling in the original implementation.
+    Parameters
+    ----------
+    config
+        Velocity-aiding gains.
     """
 
     config: VelocityAidingConfig = field(default_factory=VelocityAidingConfig)
@@ -223,9 +298,21 @@ class VelocityAidingCorrection:
 
 @dataclass(frozen=True, slots=True)
 class PositionAidingConfig:
-    position_error_gain_per_step: float = 0.032_554_663_661_856_17
-    horizontal_feedback_gain: float = 482.75
-    navigation_rate_gain_per_s: float = 4.153_044_950_005_365
+    """Configuration for horizontal GNSS position aiding.
+
+    Parameters
+    ----------
+    position_error_gain_per_step
+        Gain for direct horizontal position correction.
+    horizontal_feedback_gain
+        Gain for acceleration feedback from position error.
+    navigation_rate_gain_per_s
+        Gain for navigation-rate feedback.
+    """
+
+    position_error_gain_per_step: Scalar = 0.032_554_663_661_856_17
+    horizontal_feedback_gain: Scalar = 482.75
+    navigation_rate_gain_per_s: Scalar = 4.153_044_950_005_365
 
     def __post_init__(self) -> None:
         for name in (
@@ -233,12 +320,22 @@ class PositionAidingConfig:
             "horizontal_feedback_gain",
             "navigation_rate_gain_per_s",
         ):
-            object.__setattr__(self, name, _non_negative(getattr(self, name), name))
+            object.__setattr__(
+                self,
+                name,
+                _non_negative_scalar(getattr(self, name), name),
+            )
 
 
 @dataclass(slots=True)
 class PositionAidingCorrection:
-    """Horizontal position feedback preserving the source equations."""
+    """Horizontal GNSS position aiding.
+
+    Parameters
+    ----------
+    config
+        Position-aiding gains.
+    """
 
     config: PositionAidingConfig = field(default_factory=PositionAidingConfig)
 
@@ -250,7 +347,7 @@ class PositionAidingCorrection:
         ins_position = context.ins_state.position
         gnss_position = gnss.position
         latitude = ins_position.latitude_rad
-        cos_latitude = cos(latitude)
+        cos_latitude = np.cos(latitude)
         longitude_error = angle_difference_rad(
             ins_position.longitude_rad,
             gnss_position.longitude_rad,
@@ -296,14 +393,24 @@ class PositionAidingCorrection:
 
 @dataclass(frozen=True, slots=True)
 class HeightAidingConfig:
-    vertical_acceleration_gain_per_s2: float = 0.217_031_091_079_041_12
-    height_error_gain_per_step: float = 1.024_034_961_027_680_8
+    """Configuration for GNSS height aiding.
+
+    Parameters
+    ----------
+    vertical_acceleration_gain_per_s2
+        Gain for vertical acceleration feedback from height error.
+    height_error_gain_per_step
+        Gain for direct height correction.
+    """
+
+    vertical_acceleration_gain_per_s2: Scalar = 0.217_031_091_079_041_12
+    height_error_gain_per_step: Scalar = 1.024_034_961_027_680_8
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self,
             "vertical_acceleration_gain_per_s2",
-            _non_negative(
+            _non_negative_scalar(
                 self.vertical_acceleration_gain_per_s2,
                 "vertical_acceleration_gain_per_s2",
             ),
@@ -311,7 +418,7 @@ class HeightAidingConfig:
         object.__setattr__(
             self,
             "height_error_gain_per_step",
-            _non_negative(
+            _non_negative_scalar(
                 self.height_error_gain_per_step,
                 "height_error_gain_per_step",
             ),
@@ -320,6 +427,14 @@ class HeightAidingConfig:
 
 @dataclass(slots=True)
 class HeightAidingCorrection:
+    """Vertical GNSS height aiding.
+
+    Parameters
+    ----------
+    config
+        Height-aiding gains.
+    """
+
     config: HeightAidingConfig = field(default_factory=HeightAidingConfig)
 
     def compute(self, context: CorrectionContext) -> CorrectionOutput:
@@ -352,11 +467,27 @@ class HeightAidingCorrection:
 
 @dataclass(frozen=True, slots=True)
 class RadialAttitudeConfig:
-    radial_gain_s_per_m: float = 0.02
-    heading_gain_per_s: float = 0.5
-    max_yaw_rate_rad_s: float = radians(15.0)
-    max_horizontal_specific_force_m_s2: float = 0.05**0.5
-    min_horizontal_speed_m_s: float = 7.0
+    """Configuration for radial attitude and course aiding.
+
+    Parameters
+    ----------
+    radial_gain_s_per_m
+        Gain applied to horizontal specific-force residuals.
+    heading_gain_per_s
+        Gain applied to heading error.
+    max_yaw_rate_rad_s
+        Maximum absolute yaw rate for applying the correction.
+    max_horizontal_specific_force_m_s2
+        Maximum horizontal specific force for applying the correction.
+    min_horizontal_speed_m_s
+        Minimum GNSS horizontal speed for course-based heading correction.
+    """
+
+    radial_gain_s_per_m: Scalar = 0.02
+    heading_gain_per_s: Scalar = 0.5
+    max_yaw_rate_rad_s: Scalar = np.deg2rad(np.longdouble(15.0))
+    max_horizontal_specific_force_m_s2: Scalar = np.sqrt(np.longdouble(0.05))
+    min_horizontal_speed_m_s: Scalar = 7.0
 
     def __post_init__(self) -> None:
         for name in (
@@ -366,16 +497,21 @@ class RadialAttitudeConfig:
             "max_horizontal_specific_force_m_s2",
             "min_horizontal_speed_m_s",
         ):
-            object.__setattr__(self, name, _non_negative(getattr(self, name), name))
+            object.__setattr__(
+                self,
+                name,
+                _non_negative_scalar(getattr(self, name), name),
+            )
 
 
 @dataclass(slots=True)
 class RadialAttitudeCorrection:
     """Radial vertical and GNSS course aiding.
 
-    The first valid GNSS sample initializes the differentiator instead of being
-    differentiated against an artificial zero velocity. Heading errors are
-    wrapped, preventing a 2π discontinuity.
+    Parameters
+    ----------
+    config
+        Radial attitude and course-aiding gains.
     """
 
     config: RadialAttitudeConfig = field(default_factory=RadialAttitudeConfig)
@@ -390,13 +526,17 @@ class RadialAttitudeCorrection:
         imu_rate = context.imu.angular_rate_body_rad_s
         specific_force = context.specific_force_nav_m_s2
         gnss_velocity = gnss.velocity
-        horizontal_force = float(np.hypot(specific_force.x, specific_force.y))
-        horizontal_speed = float(
-            np.hypot(gnss_velocity.east_m_s, gnss_velocity.north_m_s)
+        yaw_rate = np.abs(np.longdouble(imu_rate.z))
+        horizontal_force = np.longdouble(np.hypot(specific_force.x, specific_force.y))
+        horizontal_speed = np.longdouble(
+            np.hypot(
+                gnss_velocity.east_m_s,
+                gnss_velocity.north_m_s,
+            )
         )
 
         allowed = (
-            abs(imu_rate.z) <= self.config.max_yaw_rate_rad_s
+            yaw_rate <= self.config.max_yaw_rate_rad_s
             and horizontal_force <= self.config.max_horizontal_specific_force_m_s2
             and horizontal_speed >= self.config.min_horizontal_speed_m_s
         )
@@ -426,9 +566,10 @@ class RadialAttitudeCorrection:
             )
         self._previous_gnss_velocity = current_gnss_velocity
 
-        gnss_heading = float(
-            np.arctan2(gnss_velocity.east_m_s, gnss_velocity.north_m_s) % (2.0 * np.pi)
-        )
+        gnss_heading = np.arctan2(
+            gnss_velocity.east_m_s,
+            gnss_velocity.north_m_s,
+        ) % (2.0 * np.longdouble(np.pi))
         heading_error = angle_difference_rad(
             context.ins_state.attitude.heading_rad,
             gnss_heading,

@@ -6,16 +6,29 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-__all__ = ["CsvOutputFormat", "LegacyDatFormat"]
+__all__ = ["CsvOutputFormat", "DatOutputFormat"]
 
 
 @dataclass(frozen=True, slots=True)
 class CsvOutputFormat:
-    """A CSV-compatible output contract for one IMU and one GPS truth stream.
+    """Output contract for generated IMU and GNSS streams.
 
-    The generator has no dependency on a particular downstream consumer.  A
-    profile describes file names, headers and external units at the boundary;
-    all generated values remain SI internally.
+    Parameters
+    ----------
+    delimiter
+        Single-character delimiter used by both files.
+    include_header
+        Write header rows when ``True``.
+    imu_filename, gps_filename
+        Output file names. Directory components are not allowed.
+    imu_columns, gps_columns
+        Column names for IMU and GNSS files.
+    angular_rate_unit
+        Unit used when writing angular rates: ``"rad/s"`` or ``"deg/s"``.
+    geographic_angle_unit
+        Unit used when writing latitude and longitude: ``"rad"`` or ``"deg"``.
+    gnss_good_value, chassis_value
+        Constant status fields written to the GNSS file.
     """
 
     delimiter: str = ","
@@ -73,8 +86,8 @@ class CsvOutputFormat:
 
 
 @dataclass(frozen=True, slots=True)
-class LegacyDatFormat(CsvOutputFormat):
-    """Exact output profile consumed by the legacy MFS24 tools."""
+class DatOutputFormat(CsvOutputFormat):
+    """Output profile for canonical ``imu.dat`` and ``gps.dat`` files."""
 
     delimiter: str = " "
     imu_filename: str = "imu.dat"
@@ -92,3 +105,7 @@ class LegacyDatFormat(CsvOutputFormat):
     )
     angular_rate_unit: Literal["rad/s", "deg/s"] = "deg/s"
     geographic_angle_unit: Literal["rad", "deg"] = "deg"
+
+
+# Compatibility alias for code that adopted the initial package preview.
+LegacyDatFormat = DatOutputFormat

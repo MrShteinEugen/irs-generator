@@ -11,35 +11,54 @@ from irs_generator.navigation_model import (
     NavigationState,
     NavigationVelocity,
 )
-from irs_generator.utils._validation import _finite_float
+from irs_generator.utils._validation import _finite_scalar
+from irs_generator.utils.math import Scalar
 
 __all__ = ["GeneratedStep", "GenerationDiagnostics", "TargetTrajectoryPoint"]
 
 
 @dataclass(frozen=True, slots=True)
 class TargetTrajectoryPoint:
-    """One prepared truth point consumed by the generator.
+    """Prepared truth point consumed by inverse generators.
 
-    Position is required only for the first point. Later positions may be
-    omitted because the generator propagates self-consistent coordinates using
-    the selected inertial-navigation algorithm.
+    Parameters
+    ----------
+    time_s
+        Timestamp in seconds.
+    velocity
+        Target ENU velocity.
+    attitude
+        Target attitude.
+    position
+        Optional target geodetic position. Required for the first point passed
+        to :class:`SyntheticDataGenerator`.
     """
 
-    time_s: float
+    time_s: Scalar
     velocity: NavigationVelocity
     attitude: EulerAngles
     position: GeodeticPosition | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "time_s", _finite_float(self.time_s, "time_s"))
+        object.__setattr__(self, "time_s", _finite_scalar(self.time_s, "time_s"))
 
 
 @dataclass(frozen=True, slots=True)
 class GenerationDiagnostics:
-    """Health information for one inverse-synthesis step."""
+    """Health information for one generated step.
+
+    Parameters
+    ----------
+    iteration_count
+        Number of solver iterations used for the step.
+    residual_norm
+        Infinity norm of the normalized residual.
+    converged
+        Whether the solver reached its configured tolerance.
+    """
 
     iteration_count: int
-    residual_norm: float
+    residual_norm: Scalar
     converged: bool
 
     def __post_init__(self) -> None:
@@ -48,18 +67,30 @@ class GenerationDiagnostics:
         object.__setattr__(
             self,
             "residual_norm",
-            _finite_float(self.residual_norm, "residual_norm"),
+            _finite_scalar(self.residual_norm, "residual_norm"),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class GeneratedStep:
-    """One output row aligned with the legacy IMU and GPS file convention."""
+    """One generated IMU sample and aligned navigation state.
 
-    time_s: float
+    Parameters
+    ----------
+    time_s
+        Timestamp in seconds.
+    imu_sample
+        Generated ideal IMU sample.
+    navigation_state
+        Navigation state aligned with this output row.
+    diagnostics
+        Solver or generator diagnostics for the row.
+    """
+
+    time_s: Scalar
     imu_sample: ImuSample
     navigation_state: NavigationState
     diagnostics: GenerationDiagnostics
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "time_s", _finite_float(self.time_s, "time_s"))
+        object.__setattr__(self, "time_s", _finite_scalar(self.time_s, "time_s"))
