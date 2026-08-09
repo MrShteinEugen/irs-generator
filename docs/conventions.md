@@ -74,6 +74,11 @@ right-handed mapping preserves orientation; a left-handed mapping includes a
 reflection. Call `validate_handedness()` when an integration requires a specific
 orientation.
 
+`InputConvention` applies explicit mappings at the input boundary. It converts
+navigation vectors to ENU and converts `pitch`, `roll`, and `heading` to radians
+and the canonical body/navigation frames. It expects the project's Euler sequence
+for the input angles; another Euler sequence requires a separate conversion.
+
 ### Body Coordinate System (body frame)
 
 The body coordinate system is a three-dimensional coordinate system rigidly attached

@@ -30,6 +30,7 @@ def test_layer_package_exports_are_intentional() -> None:
         "WGS84EarthModel",
     ]
     assert generation.__all__ == [
+        "AngleUnit",
         "Axis",
         "CsvOutputWriter",
         "CsvOutputFormat",
@@ -43,6 +44,7 @@ def test_layer_package_exports_are_intentional() -> None:
         "GenerationConfig",
         "GenerationDiagnostics",
         "Handedness",
+        "InputConvention",
         "SignedAxis",
         "SignedAxisMapping",
         "TargetTrajectoryPoint",

@@ -5,7 +5,14 @@ from .dcm import (
     DcmTrajectoryPoint,
     DcmTrajectoryReader,
 )
-from .conventions import Axis, Handedness, SignedAxis, SignedAxisMapping
+from .conventions import (
+    AngleUnit,
+    Axis,
+    Handedness,
+    InputConvention,
+    SignedAxis,
+    SignedAxisMapping,
+)
 from .formats import CsvOutputFormat, DatOutputFormat
 from .generator import GenerationConfig, SyntheticDataGenerator
 from .io import CsvOutputWriter, CsvTrajectoryReader, CsvTrajectorySchema
@@ -13,6 +20,7 @@ from .models import GeneratedStep, GenerationDiagnostics, TargetTrajectoryPoint
 from .solver import StepSolverConfig
 
 __all__ = [
+    "AngleUnit",
     "Axis",
     "CsvOutputWriter",
     "CsvOutputFormat",
@@ -26,6 +34,7 @@ __all__ = [
     "GenerationConfig",
     "GenerationDiagnostics",
     "Handedness",
+    "InputConvention",
     "SignedAxis",
     "SignedAxisMapping",
     "TargetTrajectoryPoint",

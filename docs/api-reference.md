@@ -175,9 +175,11 @@ Streaming IMU/GNSS data synthesis and file input/output.
 |--------------------------|---------|
 | `TargetTrajectoryPoint`  | A single target trajectory point for the generator. |
 | `Axis`                   | Cartesian component identifier: `X`, `Y`, or `Z`. |
+| `AngleUnit`              | Unit of external attitude angles: radians or degrees. |
 | `SignedAxis`             | Source axis and sign for one output component. |
 | `SignedAxisMapping`      | Signed axis permutation with handedness validation. |
 | `Handedness`             | Whether a mapping preserves or reverses orientation. |
+| `InputConvention`        | Conversion from external vectors and angles to project conventions. |
 | `GeneratedStep`          | A single generation output step. |
 | `GenerationDiagnostics`  | Generation-step diagnostics. |
 | `GenerationConfig`       | General-purpose generator configuration. |

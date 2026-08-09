@@ -9,9 +9,21 @@ from math import prod
 import numpy as np
 from numpy.typing import NDArray
 
-from irs_generator.utils.math import VectorArray, VectorLike, vector3
+from irs_generator.irs_model.rotation import (
+    dcm_body_to_nav_to_euler,
+    euler_to_dcm_body_to_nav,
+)
+from irs_generator.navigation_model import EulerAngles, NavigationVelocity
+from irs_generator.utils.math import Scalar, VectorArray, VectorLike, vector3
 
-__all__ = ["Axis", "Handedness", "SignedAxis", "SignedAxisMapping"]
+__all__ = [
+    "AngleUnit",
+    "Axis",
+    "Handedness",
+    "InputConvention",
+    "SignedAxis",
+    "SignedAxisMapping",
+]
 
 type Matrix3 = NDArray[np.longdouble]
 
@@ -29,6 +41,13 @@ class Handedness(str, Enum):
 
     RIGHT_HANDED = "right_handed"
     LEFT_HANDED = "left_handed"
+
+
+class AngleUnit(str, Enum):
+    """Unit used by input attitude angles."""
+
+    RADIANS = "rad"
+    DEGREES = "deg"
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,3 +161,79 @@ class SignedAxisMapping:
             raise ValueError(
                 f"expected {expected.value} mapping, got {self.handedness.value}"
             )
+
+
+@dataclass(frozen=True, slots=True)
+class InputConvention:
+    """Explicit conversion from an external frame convention to project conventions.
+
+    ``navigation_axes`` maps external navigation-vector components to canonical ENU
+    components. ``body_axes`` maps external body-vector components to the canonical
+    body frame. Both mappings must have the same handedness so that attitude
+    conversion remains a proper rotation.
+
+    Input attitude values use the project's ``pitch``, ``roll``, ``heading`` Euler
+    convention, expressed in the external frames. This class converts their unit and
+    reference frames; it does not interpret another Euler rotation sequence.
+    """
+
+    navigation_axes: SignedAxisMapping
+    body_axes: SignedAxisMapping
+    angle_unit: AngleUnit = AngleUnit.RADIANS
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.navigation_axes, SignedAxisMapping):
+            raise TypeError("navigation_axes must be a SignedAxisMapping")
+        if not isinstance(self.body_axes, SignedAxisMapping):
+            raise TypeError("body_axes must be a SignedAxisMapping")
+        if not isinstance(self.angle_unit, AngleUnit):
+            raise TypeError("angle_unit must be an AngleUnit")
+        if self.navigation_axes.handedness is not self.body_axes.handedness:
+            raise ValueError(
+                "navigation_axes and body_axes must have the same handedness"
+            )
+
+    @classmethod
+    def canonical(cls) -> "InputConvention":
+        """Return the project ENU/body convention with angles in radians."""
+
+        identity = SignedAxisMapping.identity()
+        return cls(identity, identity)
+
+    def convert_navigation_vector(self, vector: VectorLike) -> VectorArray:
+        """Convert external navigation-vector components to canonical ENU order."""
+
+        return self.navigation_axes.transform_vector(vector)
+
+    def convert_navigation_velocity(self, vector: VectorLike) -> NavigationVelocity:
+        """Convert external velocity components to ``NavigationVelocity`` in ENU."""
+
+        east_m_s, north_m_s, up_m_s = self.convert_navigation_vector(vector)
+        return NavigationVelocity(east_m_s, north_m_s, up_m_s)
+
+    def convert_attitude(
+        self,
+        pitch: Scalar,
+        roll: Scalar,
+        heading: Scalar,
+    ) -> EulerAngles:
+        """Convert external ``pitch``, ``roll``, and ``heading`` to project angles."""
+
+        external_attitude = EulerAngles(
+            self._angle_to_radians(pitch),
+            self._angle_to_radians(roll),
+            self._angle_to_radians(heading),
+        )
+        external_dcm = euler_to_dcm_body_to_nav(external_attitude)
+        canonical_dcm = (
+            self.navigation_axes.as_matrix()
+            @ external_dcm
+            @ self.body_axes.as_matrix().T
+        )
+        return dcm_body_to_nav_to_euler(canonical_dcm)
+
+    def _angle_to_radians(self, angle: Scalar) -> np.longdouble:
+        value = np.longdouble(angle)
+        if self.angle_unit is AngleUnit.RADIANS:
+            return value
+        return value * np.longdouble(np.pi) / np.longdouble(180.0)
