@@ -15,6 +15,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 include-package-data = false
 
+[tool.setuptools.package-data]
+irs_generator = ["py.typed"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["irs_generator*"]
