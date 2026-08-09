@@ -63,7 +63,9 @@ Prefer names that identify the actual decision:
 
 ## Decision Log
 
-
+1. [Package Layers and Dependency Direction](0001-package-layers-and-dependency-direction.md)
+2. [Public and Internal API Boundaries](0002-public-and-private-api-boundaries.md)
+3. [API Versioning and Compatibility Policy](0003-versioning-and-api-compatibility-policy.md)
 
 ## Criteria for Creating a New ADR
 
