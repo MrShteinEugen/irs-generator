@@ -30,6 +30,7 @@ def test_layer_package_exports_are_intentional() -> None:
         "WGS84EarthModel",
     ]
     assert generation.__all__ == [
+        "Axis",
         "CsvOutputWriter",
         "CsvOutputFormat",
         "CsvTrajectoryReader",
@@ -41,6 +42,9 @@ def test_layer_package_exports_are_intentional() -> None:
         "GeneratedStep",
         "GenerationConfig",
         "GenerationDiagnostics",
+        "Handedness",
+        "SignedAxis",
+        "SignedAxisMapping",
         "TargetTrajectoryPoint",
         "SyntheticDataGenerator",
         "StepSolverConfig",

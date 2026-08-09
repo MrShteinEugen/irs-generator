@@ -62,6 +62,18 @@ Z_nav - Up
 The `nav` suffix in variable names indicates that a vector is expressed in the ENU
 navigation coordinate system.
 
+### Axis Mappings
+
+External input may use a different component order or sign convention. Before the
+input reaches the mathematical core, represent that conversion with
+`SignedAxisMapping`. The mapping defines each output component as a signed source
+component and requires every source axis to be used exactly once.
+
+`SignedAxisMapping.handedness` reports the sign of the mapping determinant. A
+right-handed mapping preserves orientation; a left-handed mapping includes a
+reflection. Call `validate_handedness()` when an integration requires a specific
+orientation.
+
 ### Body Coordinate System (body frame)
 
 The body coordinate system is a three-dimensional coordinate system rigidly attached
