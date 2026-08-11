@@ -11,9 +11,9 @@ from typing import TextIO
 import numpy as np
 
 from irs_generator.earth_model import GeodeticPosition
-from irs_generator.navigation_model import EulerAngles, NavigationVelocity
 from irs_generator.utils.math import Scalar
 
+from .conventions import InputConvention
 from .formats import CsvOutputFormat, DatOutputFormat
 from .models import GeneratedStep, TargetTrajectoryPoint
 
@@ -31,9 +31,11 @@ class CsvTrajectorySchema:
     latitude_deg, longitude_deg, height_m
         Position column names. Angles are read in degrees.
     pitch_rad, roll_rad, heading_rad
-        Attitude column names in radians.
+        Attitude column names. Units and frame conversion are configured through
+        :class:`InputConvention` on ``CsvTrajectoryReader``.
     velocity_east_m_s, velocity_north_m_s, velocity_up_m_s
-        ENU velocity column names in metres per second.
+        Velocity column names in metres per second. Their order and signs are
+        converted by ``input_convention``.
     retain_position_after_initial
         Keep position in every yielded point when ``True``. When ``False``,
         only the first point carries position.
@@ -95,6 +97,9 @@ class CsvTrajectoryReader:
         Path to the input CSV file.
     schema
         Optional column mapping and validation policy.
+    input_convention
+        Convention used to convert velocity and attitude values to the canonical
+        project format. Defaults to the canonical ENU/body convention.
     """
 
     def __init__(
@@ -102,11 +107,24 @@ class CsvTrajectoryReader:
         path: str | Path,
         *,
         schema: CsvTrajectorySchema | None = None,
+        input_convention: InputConvention | None = None,
     ) -> None:
         self._path = Path(path)
         self._schema = schema if schema is not None else CsvTrajectorySchema()
+        self._input_convention = (
+            input_convention
+            if input_convention is not None
+            else InputConvention.canonical()
+        )
+        if not isinstance(self._input_convention, InputConvention):
+            raise TypeError("input_convention must be an InputConvention")
 
     def __iter__(self) -> Iterator[TargetTrajectoryPoint]:
+        return self.iter_points()
+
+    def iter_points(self) -> Iterator[TargetTrajectoryPoint]:
+        """Yield CSV rows as canonical target trajectory points."""
+
         with self._path.open("r", encoding="utf-8", newline="") as file:
             reader = csv.DictReader(file)
             if reader.fieldnames is None:
@@ -177,15 +195,17 @@ class CsvTrajectoryReader:
             return TargetTrajectoryPoint(
                 time_s=np.longdouble(_required(row, schema.time_s)),
                 position=position,
-                velocity=NavigationVelocity(
-                    east_m_s=np.longdouble(_required(row, schema.velocity_east_m_s)),
-                    north_m_s=np.longdouble(_required(row, schema.velocity_north_m_s)),
-                    up_m_s=np.longdouble(_required(row, schema.velocity_up_m_s)),
+                velocity=self._input_convention.convert_navigation_velocity(
+                    (
+                        np.longdouble(_required(row, schema.velocity_east_m_s)),
+                        np.longdouble(_required(row, schema.velocity_north_m_s)),
+                        np.longdouble(_required(row, schema.velocity_up_m_s)),
+                    )
                 ),
-                attitude=EulerAngles(
-                    pitch_rad=np.longdouble(_required(row, schema.pitch_rad)),
-                    roll_rad=np.longdouble(_required(row, schema.roll_rad)),
-                    heading_rad=np.longdouble(_required(row, schema.heading_rad)),
+                attitude=self._input_convention.convert_attitude(
+                    np.longdouble(_required(row, schema.pitch_rad)),
+                    np.longdouble(_required(row, schema.roll_rad)),
+                    np.longdouble(_required(row, schema.heading_rad)),
                 ),
             )
         except (TypeError, ValueError) as error:

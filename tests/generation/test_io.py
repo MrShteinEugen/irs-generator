@@ -1,18 +1,26 @@
 import csv
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from irs_generator.earth_model import GeodeticPosition
 from irs_generator.generation import (
+    AngleUnit,
+    Axis,
     CsvOutputFormat,
     CsvOutputWriter,
     CsvTrajectoryReader,
     CsvTrajectorySchema,
     GeneratedStep,
     GenerationDiagnostics,
+    InputConvention,
+    SignedAxis,
+    SignedAxisMapping,
+    TrajectoryProviderAdapter,
 )
 from irs_generator.irs_model import ImuSample
+from irs_generator.irs_model.rotation import euler_to_dcm_body_to_nav
 from irs_generator.navigation_model import (
     EulerAngles,
     NavigationState,
@@ -131,3 +139,52 @@ def test_reader_can_explicitly_accept_a_non_uniform_time_grid(tmp_path: Path) ->
     )
 
     assert [point.time_s for point in points] == [0.0, 1.0, 2.1]
+
+
+def test_csv_reader_implements_provider_adapter_protocol(tmp_path: Path) -> None:
+    reader = CsvTrajectoryReader(tmp_path / "trajectory.csv")
+
+    assert isinstance(reader, TrajectoryProviderAdapter)
+
+
+def test_reader_applies_input_convention_to_provider_values(tmp_path: Path) -> None:
+    path = tmp_path / "trajectory.csv"
+    path.write_text(
+        "t,lat,lon,h,pitch,roll,heading,vx,vy,vz\n"
+        "0,55,37,100,10,-20,30,2,3,5\n",
+        encoding="utf-8",
+    )
+    north_east_down_to_enu = SignedAxisMapping(
+        SignedAxis(Axis.Y), SignedAxis(Axis.X), SignedAxis(Axis.Z, -1)
+    )
+    convention = InputConvention(
+        navigation_axes=north_east_down_to_enu,
+        body_axes=north_east_down_to_enu,
+        angle_unit=AngleUnit.DEGREES,
+    )
+    schema = CsvTrajectorySchema(
+        time_s="t",
+        latitude_deg="lat",
+        longitude_deg="lon",
+        height_m="h",
+        pitch_rad="pitch",
+        roll_rad="roll",
+        heading_rad="heading",
+        velocity_east_m_s="vx",
+        velocity_north_m_s="vy",
+        velocity_up_m_s="vz",
+    )
+
+    point = next(
+        iter(CsvTrajectoryReader(path, schema=schema, input_convention=convention))
+    )
+    expected_dcm = (
+        north_east_down_to_enu.as_matrix()
+        @ euler_to_dcm_body_to_nav(
+            EulerAngles(np.deg2rad(10.0), np.deg2rad(-20.0), np.deg2rad(30.0))
+        )
+        @ north_east_down_to_enu.as_matrix().T
+    )
+
+    assert point.velocity.as_array() == pytest.approx((3.0, 2.0, -5.0))
+    assert np.allclose(euler_to_dcm_body_to_nav(point.attitude), expected_dcm)

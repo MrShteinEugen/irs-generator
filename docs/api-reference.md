@@ -180,6 +180,7 @@ Streaming IMU/GNSS data synthesis and file input/output.
 | `SignedAxisMapping`      | Signed axis permutation with handedness validation. |
 | `Handedness`             | Whether a mapping preserves or reverses orientation. |
 | `InputConvention`        | Conversion from external vectors and angles to project conventions. |
+| `TrajectoryProviderAdapter` | Protocol for adapters that yield canonical trajectory points. |
 | `GeneratedStep`          | A single generation output step. |
 | `GenerationDiagnostics`  | Generation-step diagnostics. |
 | `GenerationConfig`       | General-purpose generator configuration. |
