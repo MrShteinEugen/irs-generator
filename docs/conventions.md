@@ -79,6 +79,12 @@ navigation vectors to ENU and converts `pitch`, `roll`, and `heading` to radians
 and the canonical body/navigation frames. It expects the project's Euler sequence
 for the input angles; another Euler sequence requires a separate conversion.
 
+## Convention Tests
+
+The test suite uses Hypothesis to generate signed axis permutations, finite vectors,
+and attitude angles. It verifies that axis mappings are invertible and orthogonal,
+and that `InputConvention` matches the corresponding DCM frame transformation.
+
 ### Body Coordinate System (body frame)
 
 The body coordinate system is a three-dimensional coordinate system rigidly attached

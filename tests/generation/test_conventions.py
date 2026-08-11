@@ -27,8 +27,8 @@ def test_mapping_applies_axis_permutation_and_signs() -> None:
     )
 
 
-@pytest.mark.parametrize("axes", permutations(Axis))
-@pytest.mark.parametrize("signs", product((-1, 1), repeat=3))
+@pytest.mark.parametrize("axes", tuple(permutations(Axis)))
+@pytest.mark.parametrize("signs", tuple(product((-1, 1), repeat=3)))
 def test_every_signed_permutation_has_an_exact_inverse(
     axes: tuple[Axis, Axis, Axis], signs: tuple[int, int, int]
 ) -> None:

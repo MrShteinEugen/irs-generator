@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from math import prod
 
 import numpy as np
@@ -36,14 +36,14 @@ class Axis(IntEnum):
     Z = 2
 
 
-class Handedness(str, Enum):
+class Handedness(StrEnum):
     """Orientation preserved or reversed by a signed axis mapping."""
 
     RIGHT_HANDED = "right_handed"
     LEFT_HANDED = "left_handed"
 
 
-class AngleUnit(str, Enum):
+class AngleUnit(StrEnum):
     """Unit used by input attitude angles."""
 
     RADIANS = "rad"
@@ -95,7 +95,7 @@ class SignedAxisMapping:
             raise ValueError("each source axis must be used exactly once")
 
     @classmethod
-    def identity(cls) -> "SignedAxisMapping":
+    def identity(cls) -> SignedAxisMapping:
         """Return the identity mapping ``(x, y, z) -> (x, y, z)``."""
 
         return cls(SignedAxis(Axis.X), SignedAxis(Axis.Y), SignedAxis(Axis.Z))
@@ -136,7 +136,7 @@ class SignedAxisMapping:
         source = vector3(vector)
         return self.as_matrix() @ source
 
-    def inverse(self) -> "SignedAxisMapping":
+    def inverse(self) -> SignedAxisMapping:
         """Return the inverse signed axis mapping."""
 
         inverse_components: list[SignedAxis | None] = [None, None, None]
@@ -153,7 +153,7 @@ class SignedAxisMapping:
         return SignedAxisMapping(inverse_x, inverse_y, inverse_z)
 
     def validate_handedness(self, expected: Handedness) -> None:
-        """Raise ``ValueError`` when the mapping does not have ``expected`` handedness."""
+        """Raise ``ValueError`` when the mapping has unexpected handedness."""
 
         if not isinstance(expected, Handedness):
             raise TypeError("expected must be a Handedness")
@@ -194,7 +194,7 @@ class InputConvention:
             )
 
     @classmethod
-    def canonical(cls) -> "InputConvention":
+    def canonical(cls) -> InputConvention:
         """Return the project ENU/body convention with angles in radians."""
 
         identity = SignedAxisMapping.identity()

@@ -24,6 +24,7 @@ include = ["irs_generator*"]
 
 [project.optional-dependencies]
 test = [
+    "hypothesis>=6.0",
     "pytest>=8.0",
 ]
 lint = [
@@ -55,4 +56,4 @@ strict_equality = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+addopts = "-ra --import-mode=importlib"

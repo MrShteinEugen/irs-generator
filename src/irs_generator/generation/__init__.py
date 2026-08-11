@@ -1,10 +1,5 @@
 """Streaming synthesis of ideal IMU and GNSS data from target motion."""
 
-from .dcm import (
-    DcmTrajectoryGenerator,
-    DcmTrajectoryPoint,
-    DcmTrajectoryReader,
-)
 from .conventions import (
     AngleUnit,
     Axis,
@@ -12,6 +7,11 @@ from .conventions import (
     InputConvention,
     SignedAxis,
     SignedAxisMapping,
+)
+from .dcm import (
+    DcmTrajectoryGenerator,
+    DcmTrajectoryPoint,
+    DcmTrajectoryReader,
 )
 from .formats import CsvOutputFormat, DatOutputFormat
 from .generator import GenerationConfig, SyntheticDataGenerator
