@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from irs_generator.irs_model import ImuSample, InertialNavigationAlgorithm
 from irs_generator.navigation_model import NavigationState
 from irs_generator.utils.math import Scalar
 
-from .models import GeneratedStep, GenerationDiagnostics, TargetTrajectoryPoint
+from .models import GeneratedStep, GenerationDiagnostics, Trajectory
 from .solver import StepSolverConfig, solve_imu_step
 
 __all__ = ["GenerationConfig", "SyntheticDataGenerator"]
@@ -56,7 +56,7 @@ class SyntheticDataGenerator:
 
     def generate(
         self,
-        points: Iterable[TargetTrajectoryPoint],
+        points: Trajectory,
     ) -> Iterator[GeneratedStep]:
         """Generate rows from a target trajectory.
 

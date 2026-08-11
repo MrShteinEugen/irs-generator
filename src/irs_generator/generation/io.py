@@ -15,7 +15,7 @@ from irs_generator.utils.math import Scalar
 
 from .conventions import InputConvention
 from .formats import CsvOutputFormat, DatOutputFormat
-from .models import GeneratedStep, TargetTrajectoryPoint
+from .models import GeneratedStep, TrajectoryPoint
 
 __all__ = ["CsvOutputWriter", "CsvTrajectoryReader", "CsvTrajectorySchema"]
 
@@ -119,10 +119,10 @@ class CsvTrajectoryReader:
         if not isinstance(self._input_convention, InputConvention):
             raise TypeError("input_convention must be an InputConvention")
 
-    def __iter__(self) -> Iterator[TargetTrajectoryPoint]:
+    def __iter__(self) -> Iterator[TrajectoryPoint]:
         return self.iter_points()
 
-    def iter_points(self) -> Iterator[TargetTrajectoryPoint]:
+    def iter_points(self) -> Iterator[TrajectoryPoint]:
         """Yield CSV rows as canonical target trajectory points."""
 
         with self._path.open("r", encoding="utf-8", newline="") as file:
@@ -176,7 +176,7 @@ class CsvTrajectoryReader:
         row_number: int,
         *,
         require_position: bool,
-    ) -> TargetTrajectoryPoint:
+    ) -> TrajectoryPoint:
         schema = self._schema
         try:
             position = (
@@ -192,7 +192,7 @@ class CsvTrajectoryReader:
                 if require_position
                 else None
             )
-            return TargetTrajectoryPoint(
+            return TrajectoryPoint(
                 time_s=np.longdouble(_required(row, schema.time_s)),
                 position=position,
                 velocity=self._input_convention.convert_navigation_velocity(

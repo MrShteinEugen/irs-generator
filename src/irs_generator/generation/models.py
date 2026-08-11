@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from irs_generator.earth_model import GeodeticPosition
@@ -14,12 +15,18 @@ from irs_generator.navigation_model import (
 from irs_generator.utils._validation import _finite_scalar
 from irs_generator.utils.math import Scalar
 
-__all__ = ["GeneratedStep", "GenerationDiagnostics", "TargetTrajectoryPoint"]
+__all__ = [
+    "GeneratedStep",
+    "GenerationDiagnostics",
+    "TargetTrajectoryPoint",
+    "Trajectory",
+    "TrajectoryPoint",
+]
 
 
 @dataclass(frozen=True, slots=True)
-class TargetTrajectoryPoint:
-    """Prepared truth point consumed by inverse generators.
+class TrajectoryPoint:
+    """One canonical truth point in a streamed trajectory.
 
     Parameters
     ----------
@@ -30,8 +37,8 @@ class TargetTrajectoryPoint:
     attitude
         Target attitude.
     position
-        Optional target geodetic position. Required for the first point passed
-        to :class:`SyntheticDataGenerator`.
+        Optional target geodetic position. The first point passed to
+        :class:`SyntheticDataGenerator` must provide it.
     """
 
     time_s: Scalar
@@ -41,6 +48,14 @@ class TargetTrajectoryPoint:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "time_s", _finite_scalar(self.time_s, "time_s"))
+
+
+# Canonical streamed trajectory consumed by general-purpose generators. Each point
+# uses SI units, an ENU velocity, and the project's canonical body conventions.
+type Trajectory = Iterable[TrajectoryPoint]
+
+# Backward-compatible name for TrajectoryPoint.
+TargetTrajectoryPoint = TrajectoryPoint
 
 
 @dataclass(frozen=True, slots=True)

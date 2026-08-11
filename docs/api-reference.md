@@ -173,7 +173,9 @@ Streaming IMU/GNSS data synthesis and file input/output.
 
 | Name                     | Purpose |
 |--------------------------|---------|
-| `TargetTrajectoryPoint`  | A single target trajectory point for the generator. |
+| `TrajectoryPoint`        | A single canonical trajectory point for the generator. |
+| `Trajectory`             | Stream of canonical trajectory points. |
+| `TargetTrajectoryPoint`  | Backward-compatible alias for `TrajectoryPoint`. |
 | `Axis`                   | Cartesian component identifier: `X`, `Y`, or `Z`. |
 | `AngleUnit`              | Unit of external attitude angles: radians or degrees. |
 | `SignedAxis`             | Source axis and sign for one output component. |
@@ -195,17 +197,19 @@ Streaming IMU/GNSS data synthesis and file input/output.
 | `CsvOutputFormat`        | Configurable CSV output profile. |
 | `DatOutputFormat`        | Output profile for `imu.dat` and `gps.dat`. |
 
-### `TargetTrajectoryPoint`
+### `TrajectoryPoint` and `Trajectory`
 
-Describes the target state at a time instant:
+`TrajectoryPoint` describes the target state at a time instant:
 
 - `time_s`;
 - `velocity`;
 - `attitude`;
 - `position`.
 
-The first point must contain a position. For subsequent points, the INS algorithm
-may reconstruct the position.
+`Trajectory` is an `Iterable[TrajectoryPoint]`. Providers yield points one at a
+time, so the interface does not require the full trajectory in memory. The first
+point must contain a position. For subsequent points, the INS algorithm may
+reconstruct the position.
 
 ### `GeneratedStep`
 

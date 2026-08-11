@@ -16,7 +16,13 @@ from .dcm import (
 from .formats import CsvOutputFormat, DatOutputFormat
 from .generator import GenerationConfig, SyntheticDataGenerator
 from .io import CsvOutputWriter, CsvTrajectoryReader, CsvTrajectorySchema
-from .models import GeneratedStep, GenerationDiagnostics, TargetTrajectoryPoint
+from .models import (
+    GeneratedStep,
+    GenerationDiagnostics,
+    TargetTrajectoryPoint,
+    Trajectory,
+    TrajectoryPoint,
+)
 from .providers import TrajectoryProviderAdapter
 from .solver import StepSolverConfig
 
@@ -39,7 +45,9 @@ __all__ = [
     "SignedAxis",
     "SignedAxisMapping",
     "TargetTrajectoryPoint",
+    "Trajectory",
     "TrajectoryProviderAdapter",
+    "TrajectoryPoint",
     "SyntheticDataGenerator",
     "StepSolverConfig",
 ]

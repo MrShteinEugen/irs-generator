@@ -48,7 +48,9 @@ def test_layer_package_exports_are_intentional() -> None:
         "SignedAxis",
         "SignedAxisMapping",
         "TargetTrajectoryPoint",
+        "Trajectory",
         "TrajectoryProviderAdapter",
+        "TrajectoryPoint",
         "SyntheticDataGenerator",
         "StepSolverConfig",
     ]

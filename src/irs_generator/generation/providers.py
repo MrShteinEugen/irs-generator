@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Protocol, runtime_checkable
 
-from .models import TargetTrajectoryPoint
+from .models import TrajectoryPoint
 
 __all__ = ["TrajectoryProviderAdapter"]
 
@@ -19,12 +19,12 @@ class TrajectoryProviderAdapter(Protocol):
     points, so consumers receive only canonical project values.
     """
 
-    def __iter__(self) -> Iterator[TargetTrajectoryPoint]:
+    def __iter__(self) -> Iterator[TrajectoryPoint]:
         """Yield canonical target trajectory points."""
 
         ...
 
-    def iter_points(self) -> Iterator[TargetTrajectoryPoint]:
+    def iter_points(self) -> Iterator[TrajectoryPoint]:
         """Yield canonical target trajectory points through the adapter API."""
 
         ...

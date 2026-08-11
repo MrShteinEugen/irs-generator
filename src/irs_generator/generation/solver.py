@@ -10,7 +10,7 @@ from irs_generator.irs_model import ImuSample, InertialNavigationAlgorithm
 from irs_generator.navigation_model import NavigationState
 from irs_generator.utils.math import Scalar, angle_difference_rad
 
-from .models import GenerationDiagnostics, TargetTrajectoryPoint
+from .models import GenerationDiagnostics, TrajectoryPoint
 
 __all__ = ["InverseStepSolution", "StepSolverConfig", "solve_imu_step"]
 
@@ -92,7 +92,7 @@ class InverseStepSolution:
 
 def solve_imu_step(
     algorithm: InertialNavigationAlgorithm,
-    target: TargetTrajectoryPoint,
+    target: TrajectoryPoint,
     dt_s: Scalar,
     *,
     initial_guess: ImuSample | None = None,
@@ -242,7 +242,7 @@ def _line_search(
     values: np.ndarray,
     update: np.ndarray,
     residual_norm: Scalar,
-    target: TargetTrajectoryPoint,
+    target: TrajectoryPoint,
     dt_s: Scalar,
     config: StepSolverConfig,
 ) -> tuple[np.ndarray, bool]:
@@ -262,7 +262,7 @@ def _line_search(
 
 def _normalized_residual(
     state: NavigationState,
-    target: TargetTrajectoryPoint,
+    target: TrajectoryPoint,
     config: StepSolverConfig,
 ) -> np.ndarray:
     return np.array(
