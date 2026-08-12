@@ -31,6 +31,7 @@ from .models import (
 )
 from .providers import TrajectoryProviderAdapter
 from .solver import StepSolverConfig
+from .trajectory import TrajectoryUnits, TrajectoryValidationConfig, TrajectoryValidator
 
 __all__ = [
     "AngleUnit",
@@ -59,6 +60,9 @@ __all__ = [
     "Trajectory",
     "TrajectoryProviderAdapter",
     "TrajectoryPoint",
+    "TrajectoryUnits",
+    "TrajectoryValidationConfig",
+    "TrajectoryValidator",
     "SyntheticDataGenerator",
     "StepSolverConfig",
 ]

@@ -12,6 +12,7 @@ from irs_generator.utils.math import Scalar
 from .exceptions import GenerationConvergenceError, InvalidTrajectoryError
 from .models import GeneratedStep, GenerationDiagnostics, Trajectory
 from .solver import StepSolverConfig, solve_imu_step
+from .trajectory import TrajectoryValidationConfig, TrajectoryValidator
 
 __all__ = ["GenerationConfig", "GenerationMetadata", "SyntheticDataGenerator"]
 
@@ -26,16 +27,25 @@ class GenerationConfig:
         Numerical settings for one-step inverse IMU solving.
     fail_on_nonconvergence
         Raise ``RuntimeError`` when the solver does not converge if ``True``.
+    trajectory_validation
+        Policy for validating the canonical trajectory stream before solving.
     """
 
     solver: StepSolverConfig = field(default_factory=StepSolverConfig)
     fail_on_nonconvergence: bool = True
+    trajectory_validation: TrajectoryValidationConfig = field(
+        default_factory=TrajectoryValidationConfig
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.solver, StepSolverConfig):
             raise TypeError("solver must be a StepSolverConfig")
         if not isinstance(self.fail_on_nonconvergence, bool):
             raise TypeError("fail_on_nonconvergence must be a bool")
+        if not isinstance(self.trajectory_validation, TrajectoryValidationConfig):
+            raise TypeError(
+                "trajectory_validation must be a TrajectoryValidationConfig"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,7 +130,8 @@ class SyntheticDataGenerator:
             enabled.
         """
 
-        iterator = iter(points)
+        validator = TrajectoryValidator(self._config.trajectory_validation)
+        iterator = iter(validator.validate(points))
         initial = next(iterator, None)
         if initial is None:
             raise InvalidTrajectoryError(
@@ -128,9 +139,8 @@ class SyntheticDataGenerator:
             )
         if initial.position is None:
             raise InvalidTrajectoryError(
-                "the first target point must define a position"
+                "the first trajectory point must define a position"
             )
-
         initial_state = NavigationState(
             velocity=initial.velocity,
             position=initial.position,
@@ -149,10 +159,6 @@ class SyntheticDataGenerator:
         first_step = True
         while True:
             dt_s: Scalar = next_point.time_s - previous_point.time_s
-            if dt_s <= 0.0:
-                raise InvalidTrajectoryError(
-                    "target trajectory time must be strictly increasing"
-                )
             solution = solve_imu_step(
                 self._algorithm,
                 next_point,

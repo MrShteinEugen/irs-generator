@@ -175,6 +175,9 @@ Streaming IMU/GNSS data synthesis and file input/output.
 |--------------------------|---------|
 | `TrajectoryPoint`        | A single canonical trajectory point for the generator. |
 | `Trajectory`             | Stream of canonical trajectory points. |
+| `TrajectoryUnits`        | Units required by canonical trajectory points. |
+| `TrajectoryValidationConfig` | Policy for validating a trajectory stream. |
+| `TrajectoryValidator`    | Lazy validator for canonical trajectory streams. |
 | `TargetTrajectoryPoint`  | Backward-compatible alias for `TrajectoryPoint`. |
 | `Axis`                   | Cartesian component identifier: `X`, `Y`, or `Z`. |
 | `AngleUnit`              | Unit of external attitude angles: radians or degrees. |
@@ -215,6 +218,14 @@ Streaming IMU/GNSS data synthesis and file input/output.
 time, so the interface does not require the full trajectory in memory. The first
 point must contain a position. For subsequent points, the INS algorithm may
 reconstruct the position.
+
+`TrajectoryUnits` defines the canonical units: time in `s`, latitude and longitude
+in `rad`, height in `m`, ENU velocity in `m/s`, and attitude angles in `rad`.
+External units must be converted by a provider adapter before it yields a point.
+
+`TrajectoryValidator` validates the first position, increasing timestamps, and a
+uniform time grid. `TrajectoryValidationConfig(require_uniform_time_step=False)`
+allows intentionally non-uniform input.
 
 ### `GeneratedStep`
 

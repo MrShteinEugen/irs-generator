@@ -56,6 +56,9 @@ def test_layer_package_exports_are_intentional() -> None:
         "Trajectory",
         "TrajectoryProviderAdapter",
         "TrajectoryPoint",
+        "TrajectoryUnits",
+        "TrajectoryValidationConfig",
+        "TrajectoryValidator",
         "SyntheticDataGenerator",
         "StepSolverConfig",
     ]
