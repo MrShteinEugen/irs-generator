@@ -13,8 +13,14 @@ from .dcm import (
     DcmTrajectoryPoint,
     DcmTrajectoryReader,
 )
+from .exceptions import (
+    GenerationConvergenceError,
+    GenerationError,
+    GenerationSolverError,
+    InvalidTrajectoryError,
+)
 from .formats import CsvOutputFormat, DatOutputFormat
-from .generator import GenerationConfig, SyntheticDataGenerator
+from .generator import GenerationConfig, GenerationMetadata, SyntheticDataGenerator
 from .io import CsvOutputWriter, CsvTrajectoryReader, CsvTrajectorySchema
 from .models import (
     GeneratedStep,
@@ -39,9 +45,14 @@ __all__ = [
     "DcmTrajectoryReader",
     "GeneratedStep",
     "GenerationConfig",
+    "GenerationConvergenceError",
     "GenerationDiagnostics",
+    "GenerationError",
+    "GenerationMetadata",
+    "GenerationSolverError",
     "Handedness",
     "InputConvention",
+    "InvalidTrajectoryError",
     "SignedAxis",
     "SignedAxisMapping",
     "TargetTrajectoryPoint",

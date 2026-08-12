@@ -10,6 +10,7 @@ from irs_generator.irs_model import ImuSample, InertialNavigationAlgorithm
 from irs_generator.navigation_model import NavigationState
 from irs_generator.utils.math import Scalar, angle_difference_rad
 
+from .exceptions import GenerationSolverError
 from .models import GenerationDiagnostics, TrajectoryPoint
 
 __all__ = ["InverseStepSolution", "StepSolverConfig", "solve_imu_step"]
@@ -190,7 +191,9 @@ def solve_imu_step(
             dtype=np.longdouble,
         )
         if not np.all(np.isfinite(update)):
-            raise RuntimeError("inverse IMU solver produced a non-finite update")
+            raise GenerationSolverError(
+                "inverse IMU solver produced a non-finite update"
+            )
         update[:3] = np.clip(
             update[:3],
             -settings.max_acceleration_update_m_s2,

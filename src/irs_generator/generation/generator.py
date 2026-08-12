@@ -9,10 +9,11 @@ from irs_generator.irs_model import ImuSample, InertialNavigationAlgorithm
 from irs_generator.navigation_model import NavigationState
 from irs_generator.utils.math import Scalar
 
+from .exceptions import GenerationConvergenceError, InvalidTrajectoryError
 from .models import GeneratedStep, GenerationDiagnostics, Trajectory
 from .solver import StepSolverConfig, solve_imu_step
 
-__all__ = ["GenerationConfig", "SyntheticDataGenerator"]
+__all__ = ["GenerationConfig", "GenerationMetadata", "SyntheticDataGenerator"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +30,34 @@ class GenerationConfig:
 
     solver: StepSolverConfig = field(default_factory=StepSolverConfig)
     fail_on_nonconvergence: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.solver, StepSolverConfig):
+            raise TypeError("solver must be a StepSolverConfig")
+        if not isinstance(self.fail_on_nonconvergence, bool):
+            raise TypeError("fail_on_nonconvergence must be a bool")
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationMetadata:
+    """Static metadata for a synthetic-data generation run.
+
+    Parameters
+    ----------
+    algorithm_name
+        Fully qualified class name of the selected navigation algorithm.
+    config
+        Immutable configuration used by the generator.
+    """
+
+    algorithm_name: str
+    config: GenerationConfig
+
+    def __post_init__(self) -> None:
+        if not self.algorithm_name:
+            raise ValueError("algorithm_name must not be empty")
+        if not isinstance(self.config, GenerationConfig):
+            raise TypeError("config must be a GenerationConfig")
 
 
 class SyntheticDataGenerator:
@@ -54,6 +83,16 @@ class SyntheticDataGenerator:
         self._algorithm = algorithm
         self._config = config if config is not None else GenerationConfig()
 
+    @property
+    def metadata(self) -> GenerationMetadata:
+        """Return immutable metadata describing this generator instance."""
+
+        algorithm_type = type(self._algorithm)
+        return GenerationMetadata(
+            algorithm_name=f"{algorithm_type.__module__}.{algorithm_type.__qualname__}",
+            config=self._config,
+        )
+
     def generate(
         self,
         points: Trajectory,
@@ -73,10 +112,10 @@ class SyntheticDataGenerator:
 
         Raises
         ------
-        ValueError
+        InvalidTrajectoryError
             If fewer than two points are provided or the first point has no
             position.
-        RuntimeError
+        GenerationConvergenceError
             If a step does not converge and ``fail_on_nonconvergence`` is
             enabled.
         """
@@ -84,9 +123,13 @@ class SyntheticDataGenerator:
         iterator = iter(points)
         initial = next(iterator, None)
         if initial is None:
-            raise ValueError("target trajectory must contain at least two points")
+            raise InvalidTrajectoryError(
+                "target trajectory must contain at least two points"
+            )
         if initial.position is None:
-            raise ValueError("the first target point must define a position")
+            raise InvalidTrajectoryError(
+                "the first target point must define a position"
+            )
 
         initial_state = NavigationState(
             velocity=initial.velocity,
@@ -97,13 +140,19 @@ class SyntheticDataGenerator:
 
         next_point = next(iterator, None)
         if next_point is None:
-            raise ValueError("target trajectory must contain at least two points")
+            raise InvalidTrajectoryError(
+                "target trajectory must contain at least two points"
+            )
 
         previous_point = initial
         previous_guess: ImuSample | None = None
         first_step = True
         while True:
             dt_s: Scalar = next_point.time_s - previous_point.time_s
+            if dt_s <= 0.0:
+                raise InvalidTrajectoryError(
+                    "target trajectory time must be strictly increasing"
+                )
             solution = solve_imu_step(
                 self._algorithm,
                 next_point,
@@ -115,10 +164,9 @@ class SyntheticDataGenerator:
                 not solution.diagnostics.converged
                 and self._config.fail_on_nonconvergence
             ):
-                raise RuntimeError(
-                    "inverse IMU solver did not converge at "
-                    f"t={next_point.time_s:.12g}s; residual="
-                    f"{solution.diagnostics.residual_norm:.3e}"
+                raise GenerationConvergenceError(
+                    next_point.time_s,
+                    solution.diagnostics,
                 )
 
             if first_step:

@@ -186,6 +186,11 @@ Streaming IMU/GNSS data synthesis and file input/output.
 | `GeneratedStep`          | A single generation output step. |
 | `GenerationDiagnostics`  | Generation-step diagnostics. |
 | `GenerationConfig`       | General-purpose generator configuration. |
+| `GenerationMetadata`     | Algorithm identity and immutable configuration of a run. |
+| `GenerationError`        | Base class for generation runtime errors. |
+| `InvalidTrajectoryError` | A trajectory cannot initialize or advance generation. |
+| `GenerationSolverError`  | The inverse solver produced an invalid numerical result. |
+| `GenerationConvergenceError` | The inverse solver did not reach its tolerance. |
 | `StepSolverConfig`       | Inverse IMU solver settings. |
 | `SyntheticDataGenerator` | General-purpose generator based on the INS interface. |
 | `DcmTrajectoryPoint`     | Point of a canonical DCM trajectory. |
@@ -227,6 +232,19 @@ Works with any algorithm that implements `InertialNavigationAlgorithm`.
 
 Uses a numerical inverse algorithm to select an IMU sample that brings the
 algorithm to the target state.
+
+### `GenerationConfig` and `GenerationMetadata`
+
+`GenerationConfig` contains the solver settings and the non-convergence policy.
+`SyntheticDataGenerator.metadata` exposes the selected configuration and the fully
+qualified navigation-algorithm class name. Both values are immutable.
+
+### Generation Exceptions
+
+Generation runtime failures derive from `GenerationError`. Catch
+`InvalidTrajectoryError` for an unusable input stream,
+`GenerationConvergenceError` for an unconverged inverse step, and
+`GenerationSolverError` for an invalid numerical solver result.
 
 ### `DcmTrajectoryGenerator`
 
