@@ -145,11 +145,8 @@ class SignedAxisMapping:
                 Axis(output_axis), component.sign
             )
         inverse_x, inverse_y, inverse_z = inverse_components
-        assert (
-            inverse_x is not None
-            and inverse_y is not None
-            and inverse_z is not None
-        )
+        if inverse_x is None or inverse_y is None or inverse_z is None:
+            raise RuntimeError("signed axis mapping is not invertible")
         return SignedAxisMapping(inverse_x, inverse_y, inverse_z)
 
     def validate_handedness(self, expected: Handedness) -> None:

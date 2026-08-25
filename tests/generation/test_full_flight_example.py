@@ -9,15 +9,47 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from irs_generator.earth_model import GeodeticPosition
 from irs_generator.generation import (
     DcmTrajectoryGenerator,
+    DcmTrajectoryPoint,
     DcmTrajectoryReader,
 )
+from irs_generator.navigation_model import EulerAngles, NavigationVelocity
 
 EXAMPLE_DIRECTORY = Path(__file__).parents[2] / "examples" / "full_flight"
 INPUT_PATH = EXAMPLE_DIRECTORY / "input" / "prepared_trajectory.csv"
 EXPECTED_IMU_PATH = EXAMPLE_DIRECTORY / "reference" / "expected_imu.dat"
 EXPECTED_GNSS_PATH = EXAMPLE_DIRECTORY / "reference" / "expected_gnss.dat"
+
+
+@pytest.mark.parametrize("time_step_s", (float("nan"), float("inf"), 0.0, -1.0))
+def test_dcm_generator_rejects_non_finite_or_non_positive_time_step(
+    time_step_s: float,
+) -> None:
+    with pytest.raises(ValueError, match="finite and positive"):
+        DcmTrajectoryGenerator(time_step_s=time_step_s)
+
+
+def test_dcm_generator_rejects_a_timestamp_interval_that_differs_from_its_step(
+) -> None:
+    points = (
+        DcmTrajectoryPoint(
+            time_s=0.0,
+            position=GeodeticPosition(0.5, 0.25, 100.0),
+            velocity=NavigationVelocity(0.0, 0.0, 0.0),
+            attitude=EulerAngles(0.0, 0.0, 0.0),
+        ),
+        DcmTrajectoryPoint(
+            time_s=2.0,
+            position=GeodeticPosition(0.5, 0.25, 100.0),
+            velocity=NavigationVelocity(0.0, 0.0, 0.0),
+            attitude=EulerAngles(0.0, 0.0, 0.0),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="must match time_step_s"):
+        list(DcmTrajectoryGenerator(time_step_s=1.0).generate(points))
 
 
 def test_full_flight_assets_share_the_expected_dat_shape() -> None:

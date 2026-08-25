@@ -1,7 +1,8 @@
 [project]
 name = "irs-generator"
-version = "0.1.0"
-description = "Add your description here"
+dynamic = ["version"]
+description = "Synthesize ideal IMU and GNSS measurements from a target trajectory."
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "numpy==2.4.4",
@@ -14,6 +15,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "irs_generator._version.__version__"}
 
 [tool.setuptools.package-data]
 irs_generator = ["py.typed"]

@@ -1,5 +1,6 @@
 """Regression tests for the stable package-level public API."""
 
+from importlib.metadata import metadata, version
 from importlib.resources import files
 
 import irs_generator
@@ -12,6 +13,19 @@ import irs_generator.navigation_model as navigation_model
 
 def test_root_package_exports_are_intentional() -> None:
     assert irs_generator.__all__ == ["__version__"]
+
+
+def test_package_version_uses_the_distribution_metadata() -> None:
+    assert irs_generator.__version__ == version("irs-generator")
+
+
+def test_distribution_metadata_uses_the_project_description_and_readme() -> None:
+    distribution_metadata = metadata("irs-generator")
+
+    assert distribution_metadata["Summary"] == (
+        "Synthesize ideal IMU and GNSS measurements from a target trajectory."
+    )
+    assert "IRS Generator" in distribution_metadata.get_payload()
 
 
 def test_layer_package_exports_are_intentional() -> None:

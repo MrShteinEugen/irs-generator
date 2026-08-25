@@ -200,14 +200,15 @@ class DcmTrajectoryGenerator:
     Parameters
     ----------
     time_step_s
-        Fixed synthesis time step in seconds.
+        Fixed synthesis time step in seconds. Consecutive trajectory timestamps
+        must match this interval within numerical comparison tolerance.
     """
 
     def __init__(self, *, time_step_s: Scalar) -> None:
         self._earth = _DcmEarth()
         self._time_step_s = np.longdouble(time_step_s)
-        if self._time_step_s <= 0.0:
-            raise ValueError("time_step_s must be positive")
+        if not bool(np.isfinite(self._time_step_s)) or self._time_step_s <= 0.0:
+            raise ValueError("time_step_s must be finite and positive")
 
     def generate(
         self,
@@ -316,6 +317,12 @@ class DcmTrajectoryGenerator:
         if current.time_s <= previous.time_s:
             raise ValueError("target trajectory time must be strictly increasing")
         dt_s = self._time_step_s
+        observed_time_step_s = np.longdouble(current.time_s - previous.time_s)
+        if not bool(np.isclose(observed_time_step_s, dt_s, rtol=1e-6, atol=1e-9)):
+            raise ValueError(
+                "target trajectory time step must match time_step_s; "
+                f"got {observed_time_step_s:.12g}s, expected {dt_s:.12g}s"
+            )
 
         previous_velocity = _long_vector(previous)
         current_velocity = _long_vector(current)
