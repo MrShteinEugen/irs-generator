@@ -1,0 +1,64 @@
+[project]
+name = "irs-generator"
+dynamic = ["version"]
+description = "Synthesize ideal IMU and GNSS measurements from a target trajectory."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy==2.4.4",
+    "pandas==3.0.2",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "irs_generator._version.__version__"}
+
+[tool.setuptools.package-data]
+irs_generator = ["py.typed"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["irs_generator*"]
+
+[project.optional-dependencies]
+test = [
+    "hypothesis>=6.0",
+    "pytest>=8.0",
+]
+lint = [
+    "mypy>=1.13",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+explicit_package_bases = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --import-mode=importlib"
