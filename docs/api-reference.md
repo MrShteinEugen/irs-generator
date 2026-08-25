@@ -1,4 +1,3 @@
-```md
 # Public API Reference
 
 This document describes the main public entities in the package. It does not replace
@@ -107,38 +106,49 @@ Used as the INS algorithm state and as part of the generation result.
 ---
 ## `irs_generator.gps_model`
 
-| Name         | Purpose |
-|--------------|---------|
-| `GnssSample` | GNSS measurement: position and ENU velocity. |
+| Name         | Purpose                                                        |
+|--------------|----------------------------------------------------------------|
+| `GnssSample` | GNSS measurement: position, ENU velocity, and a validity flag. |
 
 `GnssSample` is used as an external navigation sample. In ideal data-generation
 scenarios, it represents the ground-truth trajectory rather than a correction.
+When `valid` is `False`, GNSS-aiding strategies ignore the sample.
 
 ---
 ## `irs_generator.irs_model`
 
 Inertial system: IMU, INS algorithms, errors, and IRS.
 
-| Name                          | Purpose |
-|-------------------------------|---------|
-| `ImuSample`                   | IMU measurement: specific force and angular rate in the body frame. |
-| `NavigationAlgorithm`         | Minimal navigation-algorithm protocol. |
-| `InertialNavigationAlgorithm` | INS-algorithm protocol with `fork()`. |
-| `DcmStrapdownINS`             | DCM strapdown INS mechanization. |
-| `MechanizationConfig`         | DCM mechanization configuration. |
-| `InertialReferenceSystem`     | IRS composed of an INS algorithm and an IMU error model. |
-| `ImuErrorModel`               | IMU error-model protocol. |
-| `IdealImuErrorModel`          | Error-free model. |
-| `BiasImuErrorModel`           | Constant accelerometer and gyroscope bias. |
-| `CompositeImuErrorModel`      | Sequential composition of multiple error models. |
-| `AnalyticAlignment`           | Analytical initial alignment from an IMU measurement. |
+| Name                                                | Purpose                                                                       |
+|-----------------------------------------------------|-------------------------------------------------------------------------------|
+| `ImuSample`                                         | IMU measurement: specific force and angular rate in the body frame.           |
+| `NavigationAlgorithm`                               | Minimal navigation-algorithm protocol.                                        |
+| `InertialNavigationAlgorithm`                       | INS-algorithm protocol with `fork()`.                                         |
+| `DcmStrapdownINS`                                   | DCM strapdown INS mechanization.                                              |
+| `StrapdownINS`                                      | Compatibility alias for `DcmStrapdownINS`; use `DcmStrapdownINS` in new code. |
+| `MechanizationConfig`                               | DCM mechanization configuration.                                              |
+| `InertialReferenceSystem`                           | IRS composed of an INS algorithm and an IMU error model.                      |
+| `ImuErrorModel`                                     | IMU error-model protocol.                                                     |
+| `IdealImuErrorModel`                                | Error-free model.                                                             |
+| `BiasImuErrorModel`                                 | Constant accelerometer and gyroscope bias.                                    |
+| `CompositeImuErrorModel`                            | Sequential composition of multiple error models.                              |
+| `AnalyticAlignment`                                 | Analytical initial alignment from an IMU measurement.                         |
+| `CorrectionStrategy`                                | Protocol for a GNSS-aiding correction strategy.                               |
+| `CorrectionContext`                                 | Inputs available to a correction strategy during one INS step.                |
+| `CorrectionOutput`                                  | Additive changes produced by a correction strategy.                           |
+| `NoCorrection`                                      | Default strategy that leaves mechanization unchanged.                         |
+| `CompositeCorrection`                               | Combines several correction strategies.                                       |
+| `VelocityAidingConfig` / `VelocityAidingCorrection` | Configuration and strategy for horizontal GNSS velocity aiding.               |
+| `PositionAidingConfig` / `PositionAidingCorrection` | Configuration and strategy for horizontal GNSS position aiding.               |
+| `HeightAidingConfig` / `HeightAidingCorrection`     | Configuration and strategy for GNSS height aiding.                            |
+| `RadialAttitudeConfig` / `RadialAttitudeCorrection` | Configuration and strategy for radial attitude and GNSS-course aiding.        |
 
 ### `ImuSample`
 
 Fields:
 
-| Field                      | Unit    | Frame |
-|----------------------------|---------|-------|
+| Field                      | Unit    | Frame      |
+|----------------------------|---------|------------|
 | `specific_force_body_m_s2` | `m/s²`  | Body frame |
 | `angular_rate_body_rad_s`  | `rad/s` | Body frame |
 
@@ -166,44 +176,52 @@ Extends `NavigationAlgorithm` with:
 
 The generator uses this method for trial numerical steps.
 
+### GNSS aiding
+
+`DcmStrapdownINS` accepts an optional correction strategy through its
+`correction` constructor argument. Its `step()` method passes an optional
+`GnssSample` to that strategy. `SyntheticDataGenerator` does not pass GNSS
+samples during inverse synthesis, so these corrections are intended for direct
+INS propagation.
+
 ---
 ## `irs_generator.generation`
 
 Streaming IMU/GNSS data synthesis and file input/output.
 
-| Name                     | Purpose |
-|--------------------------|---------|
-| `TrajectoryPoint`        | A single canonical trajectory point for the generator. |
-| `Trajectory`             | Stream of canonical trajectory points. |
-| `TrajectoryUnits`        | Units required by canonical trajectory points. |
-| `TrajectoryValidationConfig` | Policy for validating a trajectory stream. |
-| `TrajectoryValidator`    | Lazy validator for canonical trajectory streams. |
-| `TargetTrajectoryPoint`  | Backward-compatible alias for `TrajectoryPoint`. |
-| `Axis`                   | Cartesian component identifier: `X`, `Y`, or `Z`. |
-| `AngleUnit`              | Unit of external attitude angles: radians or degrees. |
-| `SignedAxis`             | Source axis and sign for one output component. |
-| `SignedAxisMapping`      | Signed axis permutation with handedness validation. |
-| `Handedness`             | Whether a mapping preserves or reverses orientation. |
-| `InputConvention`        | Conversion from external vectors and angles to project conventions. |
-| `TrajectoryProviderAdapter` | Protocol for adapters that yield canonical trajectory points. |
-| `GeneratedStep`          | A single generation output step. |
-| `GenerationDiagnostics`  | Generation-step diagnostics. |
-| `GenerationConfig`       | General-purpose generator configuration. |
-| `GenerationMetadata`     | Algorithm identity and immutable configuration of a run. |
-| `GenerationError`        | Base class for generation runtime errors. |
-| `InvalidTrajectoryError` | A trajectory cannot initialize or advance generation. |
-| `GenerationSolverError`  | The inverse solver produced an invalid numerical result. |
-| `GenerationConvergenceError` | The inverse solver did not reach its tolerance. |
-| `StepSolverConfig`       | Inverse IMU solver settings. |
-| `SyntheticDataGenerator` | General-purpose generator based on the INS interface. |
-| `DcmTrajectoryPoint`     | Point of a canonical DCM trajectory. |
-| `DcmTrajectoryReader`    | Reader for a canonical prepared DCM trajectory. |
-| `DcmTrajectoryGenerator` | Exact DCM generator. |
-| `CsvTrajectorySchema`    | Definition of input CSV trajectory column names. |
-| `CsvTrajectoryReader`    | Streaming reader for an input CSV trajectory. |
-| `CsvOutputWriter`        | Writer for IMU/GNSS results. |
-| `CsvOutputFormat`        | Configurable CSV output profile. |
-| `DatOutputFormat`        | Output profile for `imu.dat` and `gps.dat`. |
+| Name                         | Purpose                                                             |
+|------------------------------|---------------------------------------------------------------------|
+| `TrajectoryPoint`            | A single canonical trajectory point for the generator.              |
+| `Trajectory`                 | Stream of canonical trajectory points.                              |
+| `TrajectoryUnits`            | Units required by canonical trajectory points.                      |
+| `TrajectoryValidationConfig` | Policy for validating a trajectory stream.                          |
+| `TrajectoryValidator`        | Lazy validator for canonical trajectory streams.                    |
+| `TargetTrajectoryPoint`      | Backward-compatible alias for `TrajectoryPoint`.                    |
+| `Axis`                       | Cartesian component identifier: `X`, `Y`, or `Z`.                   |
+| `AngleUnit`                  | Unit of external attitude angles: radians or degrees.               |
+| `SignedAxis`                 | Source axis and sign for one output component.                      |
+| `SignedAxisMapping`          | Signed axis permutation with handedness validation.                 |
+| `Handedness`                 | Whether a mapping preserves or reverses orientation.                |
+| `InputConvention`            | Conversion from external vectors and angles to project conventions. |
+| `TrajectoryProviderAdapter`  | Protocol for adapters that yield canonical trajectory points.       |
+| `GeneratedStep`              | A single generation output step.                                    |
+| `GenerationDiagnostics`      | Generation-step diagnostics.                                        |
+| `GenerationConfig`           | General-purpose generator configuration.                            |
+| `GenerationMetadata`         | Algorithm identity and immutable configuration of a run.            |
+| `GenerationError`            | Base class for generation runtime errors.                           |
+| `InvalidTrajectoryError`     | A trajectory cannot initialize or advance generation.               |
+| `GenerationSolverError`      | The inverse solver produced an invalid numerical result.            |
+| `GenerationConvergenceError` | The inverse solver did not reach its tolerance.                     |
+| `StepSolverConfig`           | Inverse IMU solver settings.                                        |
+| `SyntheticDataGenerator`     | General-purpose generator based on the INS interface.               |
+| `DcmTrajectoryPoint`         | Point of a canonical DCM trajectory.                                |
+| `DcmTrajectoryReader`        | Reader for a canonical prepared DCM trajectory.                     |
+| `DcmTrajectoryGenerator`     | Exact DCM generator.                                                |
+| `CsvTrajectorySchema`        | Definition of input CSV trajectory column names.                    |
+| `CsvTrajectoryReader`        | Streaming reader for an input CSV trajectory.                       |
+| `CsvOutputWriter`            | Writer for IMU/GNSS results.                                        |
+| `CsvOutputFormat`            | Configurable CSV output profile.                                    |
+| `DatOutputFormat`            | Output profile for `imu.dat` and `gps.dat`.                         |
 
 ### `TrajectoryPoint` and `Trajectory`
 
@@ -259,12 +277,13 @@ Generation runtime failures derive from `GenerationError`. Catch
 
 ### `DcmTrajectoryGenerator`
 
-Specialized exact generator for canonical DCM trajectories. Uses adjacent trajectory
-points and DCM kinematics to calculate the ideal IMU measurement directly.
+Specialized reference generator for canonical DCM trajectories. It uses adjacent
+trajectory points and DCM kinematics to calculate the IMU measurement with a
+bounded iterative refinement.
 
 ---
 ## Internal Modules
 
 Modules and names with the `_` prefix are not part of the public API. They may
 change without compatibility guarantees, provided that public contracts remain intact.
-```
+---

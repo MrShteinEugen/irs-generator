@@ -9,7 +9,6 @@ import zipfile
 from collections.abc import Iterable
 from pathlib import Path
 
-
 FORBIDDEN_PREFIXES = (
     ".github/",
     ".idea/",

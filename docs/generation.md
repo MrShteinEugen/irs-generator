@@ -34,7 +34,7 @@ kinematics equation used by the navigation algorithm.
 | `U_nav`            | Earth rotation rate projected onto the navigation frame.                                     |
 | `g`                | Gravity vector in the navigation frame.                                                      |
 | `[V]`              | Skew-symmetric matrix corresponding to vector `V`.                                           |
-| `GS(С)`            | Orthonormalization of matrix `С` using the Gram–Schmidt method.                              |
+| `Π_SO(3)(C)`       | Projection of matrix `C` to the nearest proper rotation matrix using SVD.                    |
 | `ansim(C)`         | Extraction of the antisymmetric part of matrix `C`.                                          |
 | `vee(C)`           | Conversion of skew-symmetric matrix `C` to a three-component vector.                         |
 | `ε`                | Acceptable DCM consistency error.                                                            |
@@ -48,7 +48,10 @@ kinematics equation used by the navigation algorithm.
 ---
 ## Data Generation Algorithm
 
-![alg-nav-inv.png](../.draw/alg-nav-inv.png)
+The following sections describe the DCM reference profile used by
+`DcmTrajectoryGenerator`.
+
+![algorithm.png](png/alg-nav-inv.png)
 
 ---
 ## Input Data
@@ -76,11 +79,12 @@ $$
 \vartheta(t_k).
 $$
 
-3) Initial geographic coordinates
+3) Geographic coordinates. The general generator requires the initial position;
+the DCM reference profile requires position at every sample.
 $$
-\varphi(t_0), \qquad
-\lambda(t_0), \qquad
-h(t_0).
+\varphi(t_k), \qquad
+\lambda(t_k), \qquad
+h(t_k).
 $$
 
 4) Optional data that may be used to simulate additional aircraft instruments in the future
@@ -161,7 +165,9 @@ h_i = h_{i-1} + \Delta t V_{oz,i-1}.
 $$
 
 Here, `R_φ` and `R_λ` are the Earth-model radii of curvature used to convert
-linear displacement into changes in latitude and longitude.
+linear displacement into changes in latitude and longitude. This reconstruction
+applies when a general trajectory provides position only at the first point. The
+DCM reference profile uses the position supplied at each point.
 
 ---
 ## DCM Construction
@@ -224,11 +230,11 @@ $$
 
 The current estimate `ω_b^j` therefore predicts the DCM state at time `t_{i+1}`.
 
-The resulting matrix is orthonormalized using the Gram–Schmidt method:
+The resulting matrix is projected to the nearest proper rotation matrix using SVD:
 $$
 DCM^{pred}
 =
-GS\left(\left(C_b^{nav}(t_{i+1})\right)_j\right).
+\Pi_{SO(3)}\left(\left(C_b^{nav}(t_{i+1})\right)_j\right).
 $$
 
 The true DCM at time `t_{i+1}` is calculated from the input attitude angles:
@@ -237,16 +243,15 @@ $$
 DCM^{true} = C_b^{nav}(t_{i+1}).
 $$
 
-The prediction error is defined as the difference between the true and predicted DCMs:
+The prediction error is the maximum absolute element of the DCM difference:
 
 $$
 \Delta C^j
 =
-\left|DCM^{true} - DCM^{pred}\right|.
+\max\left|DCM^{true} - DCM^{pred}\right|.
 $$
 
-If the difference between the matrices is sufficiently large, the gyroscope readings
-that caused the least-squares calculation error are corrected.
+If the residual is not below `ε`, the gyroscope reading is corrected.
 
 $$
 \Delta C^j < \varepsilon,
@@ -260,7 +265,7 @@ V
 \operatorname{ansim}
 \left(
 \left(C_b^{nav}(t_i)\right)^T
-\frac{\Delta C^j}{\Delta t}
+\frac{DCM^{true} - DCM^{pred}}{\Delta t}
 \right).
 $$
 
@@ -283,7 +288,8 @@ j = j + 1.
 $$
 
 The calculation of `DCM^pred`, `ΔC^j`, and the correction is repeated until
-`ΔC^j < ε`.
+`ΔC^j < ε` or 12 iterations have been completed. The implementation uses
+`ε = 1e-15` and records the final residual in `GenerationDiagnostics`.
 
 ---
 ## Calculating Accelerometer Readings
@@ -344,16 +350,16 @@ GNSS and IMU data are generated on the same time grid with a fixed step `Δt`.
 ---
 ## Summary of Steps
 
-1. Read the source telemetry and initial geographic coordinates.
+1. Read the source telemetry and geographic coordinates.
 2. Preprocess the input data: interpolate invalid values, unwrap the heading angle,
    and resample onto a uniform time grid.
 3. Reconstruct geographic coordinates `φ`, `λ`, and `h` by integrating velocity
-   components in the local-level frame.
+   components in the local-level frame when the trajectory provides only the initial position.
 4. Construct `C_b^n` from angles `ψ`, `ϑ`, and `γ` for each time instant, and calculate `g(φ, h)`.
 5. Calculate the initial estimate of vehicle angular rate measured by the gyroscopes, `ω_b`, from the DCM change.
-6. Refine gyroscope readings `ω_b` iteratively: predict the DCM at the next step, orthonormalize it,
-   determine the error relative to the DCM constructed from telemetry, and correct `ω_b` until the
-   required accuracy condition is met.
+6. Refine gyroscope readings `ω_b` iteratively: predict the DCM at the next step, project it to SO(3),
+   determine the residual relative to the DCM constructed from telemetry, and correct `ω_b` until the
+   required accuracy condition or iteration limit is reached.
 7. Calculate the velocity derivative `V̇_nav` and accelerometer readings `a_b` in the body frame.
 8. Generate GNSS and IMU output data sets on the common time grid.
 ---

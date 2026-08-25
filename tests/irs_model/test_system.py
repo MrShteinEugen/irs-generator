@@ -8,6 +8,7 @@ from irs_generator.irs_model import (
     BiasImuErrorModel,
     DcmStrapdownINS,
     ImuSample,
+    InertialNavigationAlgorithm,
     InertialReferenceSystem,
     StrapdownINS,
 )
@@ -110,6 +111,10 @@ def test_dcm_strapdown_fork_keeps_trial_state_independent() -> None:
 
     assert algorithm.state == _initial_state()
     assert trial.state != algorithm.state
+
+
+def test_dcm_strapdown_ins_implements_the_inverse_generation_protocol() -> None:
+    assert isinstance(DcmStrapdownINS(_initial_state()), InertialNavigationAlgorithm)
 
 
 @pytest.mark.parametrize("dt_s", [0.0, -1.0, nan, inf, -inf])

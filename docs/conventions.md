@@ -45,14 +45,14 @@ Longitude specifies a point's position relative to the prime meridian and ranges
 Altitude is measured relative to the surface of the Earth model. A positive altitude denotes a point
 above the ellipsoid surface; a negative altitude denotes a point below it.
 
-### Navigation Coordinate System (local level frane)
+### Navigation Coordinate System (local-level frame)
 
 The navigation coordinate system used by the project is ENU.
 ENU (*East, North, Up*) is a three-dimensional coordinate system. Two axes point
 towards the cardinal directions east and north; the third axis completes a right-handed
 coordinate system.
 
-![geo_coords.png](png/geo_coords.png)
+![Local-Level_Frame_ENU.png](png/Local-Level_Frame_ENU.png)
 ```text
 X_nav - East
 Y_nav - North
@@ -122,8 +122,8 @@ The project uses roll, pitch, and yaw as attitude parameters.
 ---
 ## Direction Cosine Matrix
 
-A Direction Cosine Matrix (DCM) transforms vectors between the navigation and body
-coordinate systems. The transformation matrix is obtained by applying successive
+The body-to-navigation Direction Cosine Matrix (DCM), `C_b^n`, transforms body-frame
+components into ENU navigation-frame components. The transformation matrix is obtained by applying successive
 rotations through the angles ψ (yaw), ϑ (pitch), and γ (roll).
 
 Rotation through the heading angle ψ:

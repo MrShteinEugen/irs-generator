@@ -44,11 +44,11 @@ Dependency rules:
 * `navigation_model` may depend on `earth_model` and `utils`, but must not depend on INS algorithms or the generator.
 * `gps_model` may use basic navigation classes, but must not depend on IRS, IMU, or the generator.
 * `irs_model` may use Earth models, navigation state models, and GNSS models, but must not depend on `generation`.
-* `generation` is responsible for the data generation process itself. It uses only the common inertial algorithm interface defined by `irs_model` and must not depend on the internal implementation of a particular algorithm.
+* `generation` is responsible for data generation, input/output, and trajectory formats. Its general-purpose generator uses the common inertial algorithm interface defined by `irs_model`. The specialized DCM generator may use shared IMU and navigation value objects, but must not depend on the internal state of `DcmStrapdownINS`.
 
 ## Consequences
 
-The generator must not depend on whether the navigation algorithm is based on a direction cosine matrix, quaternions, or another mathematical representation. It depends only on the common algorithm interface: access to the current state, an integration step, and the ability to create an independent copy for trial computations.
+The general-purpose generator must not depend on whether the navigation algorithm is based on a direction cosine matrix, quaternions, or another mathematical representation. It depends only on the common algorithm interface: access to the current state, an integration step, and the ability to create an independent copy for trial computations.
 
 This separation makes the project extensible. New gravity models, INS algorithms, input/output formats, and generation scenarios can be added without extensive changes to lower-level layers.
 

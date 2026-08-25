@@ -50,9 +50,32 @@ analysis.
 ## Quick Start
 
 ```python
-generator = SyntheticDataGenerator(
-    DcmStrapdownINS(initial_state)
+from irs_generator.earth_model import GeodeticPosition
+from irs_generator.generation import CsvOutputWriter, SyntheticDataGenerator, TrajectoryPoint
+from irs_generator.irs_model import DcmStrapdownINS
+from irs_generator.navigation_model import EulerAngles, NavigationState, NavigationVelocity
+
+initial_state = NavigationState(
+    position=GeodeticPosition(longitude_rad=0.0, latitude_rad=0.5, height_m=100.0),
+    velocity=NavigationVelocity(east_m_s=0.0, north_m_s=0.0, up_m_s=0.0),
+    attitude=EulerAngles(pitch_rad=0.0, roll_rad=0.0, heading_rad=0.0),
 )
+points = (
+    TrajectoryPoint(
+        time_s=0.0,
+        position=initial_state.position,
+        velocity=initial_state.velocity,
+        attitude=initial_state.attitude,
+    ),
+    TrajectoryPoint(
+        time_s=0.01,
+        position=initial_state.position,
+        velocity=initial_state.velocity,
+        attitude=initial_state.attitude,
+    ),
+)
+
+generator = SyntheticDataGenerator(DcmStrapdownINS(initial_state))
 
 with CsvOutputWriter("output") as writer:
     for sample in generator.generate(points):
@@ -125,13 +148,13 @@ Body-frame axes:
 
 All internal calculations use SI units.
 
-| Quantity | Unit |
-|----------|------|
-| Time | s |
-| Position | rad, m |
-| Velocity | m/s |
-| Specific force | m/s² |
-| Angular rate | rad/s |
+| Quantity       | Unit   |
+|----------------|--------|
+| Time           | s      |
+| Position       | rad, m |
+| Velocity       | m/s    |
+| Specific force | m/s²   |
+| Angular rate   | rad/s  |
 
 ## Data Formats
 
@@ -146,7 +169,9 @@ New INS implementations can be added by implementing the
 ## Limitations
 
 - Only the DCM implementation is currently available.
-- No GNSS correction during generation.
+- `SyntheticDataGenerator` generates a self-consistent trajectory and does not
+  pass GNSS samples to the navigation algorithm. `DcmStrapdownINS` supports
+  GNSS aiding when called directly with `step(..., gnss_sample=...)`.
 - No command-line interface.
 
 ## Development
@@ -171,7 +196,7 @@ python -m build
 Run the audit:
 
 ```bash
-python tools/audit_distribution.py
+python scripts/audit_distribution.py
 ```
 
 The audit checks both the wheel (`.whl`) and source distribution

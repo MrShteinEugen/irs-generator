@@ -15,6 +15,7 @@ from irs_generator.navigation_model import (
 from irs_generator.utils._validation import _positive_scalar, _validate_dt
 from irs_generator.utils.math import Scalar, Vector3, _normalize_longitude
 
+from .algorithm import InertialNavigationAlgorithm
 from .corrections import (
     CorrectionContext,
     CorrectionStrategy,
@@ -60,7 +61,7 @@ class MechanizationConfig:
         object.__setattr__(self, "minimum_absolute_cos_latitude", threshold)
 
 
-class DcmStrapdownINS:
+class DcmStrapdownINS(InertialNavigationAlgorithm):
     """ENU strapdown INS using DCM Poisson attitude kinematics.
 
     Parameters

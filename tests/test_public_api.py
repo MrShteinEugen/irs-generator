@@ -1,7 +1,9 @@
 """Regression tests for the stable package-level public API."""
 
-from importlib.metadata import metadata, version
+from email.message import Message
+from importlib.metadata import distribution, version
 from importlib.resources import files
+from typing import cast
 
 import irs_generator
 import irs_generator.earth_model as earth_model
@@ -20,12 +22,15 @@ def test_package_version_uses_the_distribution_metadata() -> None:
 
 
 def test_distribution_metadata_uses_the_project_description_and_readme() -> None:
-    distribution_metadata = metadata("irs-generator")
+    installed_distribution = distribution("irs-generator")
 
-    assert distribution_metadata["Summary"] == (
+    assert installed_distribution.metadata["Summary"] == (
         "Synthesize ideal IMU and GNSS measurements from a target trajectory."
     )
-    assert "IRS Generator" in distribution_metadata.get_payload()
+    metadata_message = cast(Message, installed_distribution.metadata)
+    metadata_payload = metadata_message.get_payload()
+    assert isinstance(metadata_payload, str)
+    assert "IRS Generator" in metadata_payload
 
 
 def test_layer_package_exports_are_intentional() -> None:

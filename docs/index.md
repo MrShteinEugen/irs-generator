@@ -69,6 +69,7 @@ For details, see the [full-flight example](../examples/full_flight/README.md).
 - Streaming trajectory input and IMU/GNSS data output.
 - General-purpose generator based on the INS algorithm interface.
 - Specialized DCM generator for prepared canonical trajectories.
+- GNSS-aiding corrections for direct `DcmStrapdownINS` propagation.
 - CSV and DAT output profiles (`imu.dat` / `gps.dat`).
 
 ---
@@ -76,6 +77,7 @@ For details, see the [full-flight example](../examples/full_flight/README.md).
 
 The [public API reference](api-reference.md) describes the available modules, classes,
 functions, and protocols. Public names are exported by the packages of their respective layers.
+It also documents GNSS-aiding corrections available to `DcmStrapdownINS`.
 
 Main namespaces:
 
