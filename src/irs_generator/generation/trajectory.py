@@ -72,9 +72,7 @@ class TrajectoryValidator:
     units = TrajectoryUnits()
 
     def __init__(self, config: TrajectoryValidationConfig | None = None) -> None:
-        self._config = (
-            config if config is not None else TrajectoryValidationConfig()
-        )
+        self._config = config if config is not None else TrajectoryValidationConfig()
         if not isinstance(self._config, TrajectoryValidationConfig):
             raise TypeError("config must be a TrajectoryValidationConfig")
 

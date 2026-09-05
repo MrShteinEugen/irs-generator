@@ -202,9 +202,7 @@ class SphericalEarthModel:
         *,
         name: str = "Mean spherical Earth",
         radius_m: Scalar = DEFAULT_RADIUS_M,
-        gravitational_parameter_m3_s2: Scalar = (
-            DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2
-        ),
+        gravitational_parameter_m3_s2: Scalar = (DEFAULT_GRAVITATIONAL_PARAMETER_M3_S2),
         angular_velocity_rad_s: Scalar = DEFAULT_ANGULAR_VELOCITY_RAD_S,
         gravity_model: GravityModel | None = None,
     ) -> None:

@@ -31,8 +31,9 @@ def test_dcm_generator_rejects_non_finite_or_non_positive_time_step(
         DcmTrajectoryGenerator(time_step_s=time_step_s)
 
 
-def test_dcm_generator_rejects_a_timestamp_interval_that_differs_from_its_step(
-) -> None:
+def test_dcm_generator_rejects_a_timestamp_interval_that_differs_from_its_step() -> (
+    None
+):
     points = (
         DcmTrajectoryPoint(
             time_s=0.0,

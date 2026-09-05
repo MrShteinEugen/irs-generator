@@ -1,0 +1,2 @@
+# Install from the public package index; do not replace this with a local path.
+irs-generator

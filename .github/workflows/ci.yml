@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked project dependencies
+        run: uv sync --extra test --extra lint --frozen
+
+      - name: Check lint
+        run: uv run --no-sync ruff check src tests
+
+      - name: Check formatting
+        run: uv run --no-sync ruff format --check src tests
+
+      - name: Check types
+        run: uv run --no-sync mypy src
+
+      - name: Run tests
+        run: uv run --no-sync pytest
+
+      # Keep build tooling outside the locked project environment.
+      - name: Install build frontend
+        run: python -m pip install build==1.2.2.post1
+
+      - name: Build wheel and source distribution
+        run: python -m build
+
+      - name: Audit distributions
+        run: python scripts/audit_distribution.py
+
+      - name: Verify lockfile is unchanged
+        if: always()
+        run: git diff --exit-code -- uv.lock

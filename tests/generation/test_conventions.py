@@ -22,9 +22,7 @@ def test_mapping_applies_axis_permutation_and_signs() -> None:
         SignedAxis(Axis.Z),
     )
 
-    assert mapping.transform_vector((2.0, 3.0, 5.0)) == pytest.approx(
-        (3.0, -2.0, 5.0)
-    )
+    assert mapping.transform_vector((2.0, 3.0, 5.0)) == pytest.approx((3.0, -2.0, 5.0))
 
 
 @pytest.mark.parametrize("axes", tuple(permutations(Axis)))
@@ -61,9 +59,7 @@ def test_single_axis_reflection_is_left_handed() -> None:
 
 def test_mapping_rejects_duplicate_source_axes() -> None:
     with pytest.raises(ValueError, match="each source axis"):
-        SignedAxisMapping(
-            SignedAxis(Axis.X), SignedAxis(Axis.X), SignedAxis(Axis.Z)
-        )
+        SignedAxisMapping(SignedAxis(Axis.X), SignedAxis(Axis.X), SignedAxis(Axis.Z))
 
 
 @pytest.mark.parametrize("sign", (0, 2, -2, True))
@@ -110,9 +106,7 @@ def test_input_convention_converts_degrees_and_reference_frames() -> None:
     expected_dcm = (
         north_east_down_to_enu.as_matrix()
         @ euler_to_dcm_body_to_nav(
-            EulerAngles(
-                np.deg2rad(10.0), np.deg2rad(-20.0), np.deg2rad(30.0)
-            )
+            EulerAngles(np.deg2rad(10.0), np.deg2rad(-20.0), np.deg2rad(30.0))
         )
         @ north_east_down_to_enu.as_matrix().T
     )

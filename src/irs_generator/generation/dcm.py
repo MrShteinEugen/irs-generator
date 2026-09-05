@@ -132,9 +132,7 @@ class DcmTrajectoryReader:
         timestamps = np.fromiter((point.time_s for point in self), dtype=np.longdouble)
         if timestamps.size < 2:
             raise ValueError("target trajectory must contain at least two points")
-        return np.longdouble(
-            float(np.median(np.diff(timestamps).astype(np.float64)))
-        )
+        return np.longdouble(float(np.median(np.diff(timestamps).astype(np.float64))))
 
 
 class _RowWriter(Protocol):
@@ -462,9 +460,7 @@ def _orthonormalize(dcm: np.ndarray) -> np.ndarray:
 def _project_to_so3(matrix: np.ndarray) -> np.ndarray:
     """Project a matrix onto the closest proper rotation matrix."""
 
-    u, _, vt = np.linalg.svd(
-        np.asarray(matrix, dtype=np.float64)
-    )
+    u, _, vt = np.linalg.svd(np.asarray(matrix, dtype=np.float64))
     result = u @ vt
     if np.linalg.det(result) < 0.0:
         u[:, -1] *= -1.0
