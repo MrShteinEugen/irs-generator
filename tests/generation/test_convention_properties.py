@@ -45,9 +45,7 @@ _ANGLE_RAD = st.floats(
 )
 
 
-def _mapping(
-    axis_order: list[Axis], signs: tuple[int, int, int]
-) -> SignedAxisMapping:
+def _mapping(axis_order: list[Axis], signs: tuple[int, int, int]) -> SignedAxisMapping:
     return SignedAxisMapping(
         *(SignedAxis(axis, sign) for axis, sign in zip(axis_order, signs, strict=True))
     )

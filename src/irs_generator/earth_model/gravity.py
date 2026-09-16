@@ -78,15 +78,11 @@ class SomiglianaNormalGravity:
             * np.arctan(second_eccentricity)
             - np.longdouble(3.0) / second_eccentricity
         )
-        q0_prime = (
-            np.longdouble(3.0)
-            * (np.longdouble(1.0) + np.longdouble(1.0) / ep2)
-            * (
-                np.longdouble(1.0)
-                - np.arctan(second_eccentricity) / second_eccentricity
-            )
-            - np.longdouble(1.0)
-        )
+        q0_prime = np.longdouble(3.0) * (
+            np.longdouble(1.0) + np.longdouble(1.0) / ep2
+        ) * (
+            np.longdouble(1.0) - np.arctan(second_eccentricity) / second_eccentricity
+        ) - np.longdouble(1.0)
         rotational_m = omega * omega * a * a * b / mu
 
         gamma_e = (
@@ -184,12 +180,7 @@ class SomiglianaNormalGravity:
         correction = (
             np.longdouble(1.0)
             - np.longdouble(2.0)
-            * (
-                np.longdouble(1.0)
-                + f
-                + m
-                - np.longdouble(2.0) * f * sin_lat_squared
-            )
+            * (np.longdouble(1.0) + f + m - np.longdouble(2.0) * f * sin_lat_squared)
             * height_ratio
             + np.longdouble(3.0) * height_ratio * height_ratio
         )

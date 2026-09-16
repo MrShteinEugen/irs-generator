@@ -40,7 +40,7 @@ uv add irs-generator
 Clone the repository and install all development dependencies:
 
 ```bash
-uv sync --extra test --extra lint
+uv sync --extra test --extra lint --frozen
 ```
 
 The `test` extra installs the packages required to run the test suite,
@@ -90,7 +90,7 @@ See the API documentation for complete examples.
 GNSS data files, and an executable example.
 
 ```bash
-python examples/full_flight/generate.py
+uv run --no-sync python examples/full_flight/generate.py
 ```
 
 ## Architecture
@@ -172,14 +172,15 @@ New INS implementations can be added by implementing the
 - `SyntheticDataGenerator` generates a self-consistent trajectory and does not
   pass GNSS samples to the navigation algorithm. `DcmStrapdownINS` supports
   GNSS aiding when called directly with `step(..., gnss_sample=...)`.
-- No command-line interface.
+- No installed command-line entry point; the repository includes an example script.
 
 ## Development
 
 ```bash
-ruff check .
-mypy src tests
-pytest
+uv run --no-sync ruff check src tests
+uv run --no-sync ruff format --check src tests
+uv run --no-sync mypy src tests
+uv run --no-sync pytest
 ```
 
 ## Distribution Audit
@@ -187,9 +188,10 @@ pytest
 Before publishing a release, verify that the generated distribution
 artifacts do not contain unintended repository files.
 
-Build the distributions:
+With Python 3.12 or later, install the build frontend and build the distributions:
 
 ```bash
+python -m pip install build
 python -m build
 ```
 

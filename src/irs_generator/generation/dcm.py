@@ -132,9 +132,7 @@ class DcmTrajectoryReader:
         timestamps = np.fromiter((point.time_s for point in self), dtype=np.longdouble)
         if timestamps.size < 2:
             raise ValueError("target trajectory must contain at least two points")
-        return np.longdouble(
-            float(np.median(np.diff(timestamps).astype(np.float64)))
-        )
+        return np.longdouble(float(np.median(np.diff(timestamps).astype(np.float64))))
 
 
 class _RowWriter(Protocol):
@@ -297,7 +295,7 @@ class DcmTrajectoryGenerator:
         previous: DcmTrajectoryPoint,
         current: DcmTrajectoryPoint,
     ) -> tuple[ImuSample, GenerationDiagnostics]:
-        acceleration_body, angular_rate_body, residual = self._derive_raw_sample(
+        acceleration_body, angular_rate_body, diagnostics = self._derive_raw_sample(
             previous,
             current,
         )
@@ -306,14 +304,14 @@ class DcmTrajectoryGenerator:
                 specific_force_body_m_s2=Vector3.from_iterable(acceleration_body),
                 angular_rate_body_rad_s=Vector3.from_iterable(angular_rate_body),
             ),
-            GenerationDiagnostics(12, residual, residual <= 1e-15),
+            diagnostics,
         )
 
     def _derive_raw_sample(
         self,
         previous: DcmTrajectoryPoint,
         current: DcmTrajectoryPoint,
-    ) -> tuple[np.ndarray, np.ndarray, float]:
+    ) -> tuple[np.ndarray, np.ndarray, GenerationDiagnostics]:
         if current.time_s <= previous.time_s:
             raise ValueError("target trajectory time must be strictly increasing")
         dt_s = self._time_step_s
@@ -343,13 +341,13 @@ class DcmTrajectoryGenerator:
             dt_s,
         )
         acceleration_body = previous_dcm.T @ acceleration_nav
-        angular_rate_body, residual = _poisson_inversion(
+        angular_rate_body, diagnostics = _poisson_inversion(
             previous_dcm,
             current_dcm,
             navigation_rate,
             dt_s,
         )
-        return acceleration_body, angular_rate_body, residual
+        return acceleration_body, angular_rate_body, diagnostics
 
     def _navigation_rate(
         self,
@@ -434,12 +432,11 @@ def _poisson_inversion(
     target_dcm: np.ndarray,
     navigation_rate: np.ndarray,
     dt_s: np.longdouble,
-) -> tuple[np.ndarray, float]:
+) -> tuple[np.ndarray, GenerationDiagnostics]:
     dcm_dot = (target_dcm - previous_dcm) / dt_s
     initial_matrix = previous_dcm.T @ (dcm_dot + _skew(navigation_rate) @ previous_dcm)
     angular_rate = _vee((initial_matrix - initial_matrix.T) * np.longdouble(0.5))
-    residual = float("inf")
-    for _ in range(12):
+    for iteration_count in range(1, 13):
         predicted_dot = (
             previous_dcm @ _skew(angular_rate) - _skew(navigation_rate) @ previous_dcm
         )
@@ -447,12 +444,19 @@ def _poisson_inversion(
         delta = target_dcm - predicted_dcm
         residual = float(np.max(np.abs(delta.astype(np.float64))))
         if residual < 1e-15:
-            break
+            return angular_rate, GenerationDiagnostics(iteration_count, residual, True)
         update_matrix = previous_dcm.T @ (delta / dt_s)
         angular_rate = angular_rate + _vee(
             (update_matrix - update_matrix.T) * np.longdouble(0.5)
         )
-    return angular_rate, residual
+    # The last update changes omega after its residual was evaluated. Report
+    # the residual of the returned sample, without performing another update.
+    predicted_dot = (
+        previous_dcm @ _skew(angular_rate) - _skew(navigation_rate) @ previous_dcm
+    )
+    predicted_dcm = _orthonormalize(previous_dcm + dt_s * predicted_dot)
+    residual = float(np.max(np.abs((target_dcm - predicted_dcm).astype(np.float64))))
+    return angular_rate, GenerationDiagnostics(12, residual, residual < 1e-15)
 
 
 def _orthonormalize(dcm: np.ndarray) -> np.ndarray:
@@ -462,9 +466,7 @@ def _orthonormalize(dcm: np.ndarray) -> np.ndarray:
 def _project_to_so3(matrix: np.ndarray) -> np.ndarray:
     """Project a matrix onto the closest proper rotation matrix."""
 
-    u, _, vt = np.linalg.svd(
-        np.asarray(matrix, dtype=np.float64)
-    )
+    u, _, vt = np.linalg.svd(np.asarray(matrix, dtype=np.float64))
     result = u @ vt
     if np.linalg.det(result) < 0.0:
         u[:, -1] *= -1.0
@@ -545,7 +547,7 @@ def _write_dat_row(
     imu_writer: _RowWriter,
     gnss_writer: _RowWriter,
     point: DcmTrajectoryPoint,
-    raw_sample: tuple[np.ndarray, np.ndarray, float],
+    raw_sample: tuple[np.ndarray, np.ndarray, GenerationDiagnostics],
 ) -> None:
     acceleration, angular_rate, _ = raw_sample
     imu_writer.writerow(
