@@ -1,7 +1,9 @@
 # GNSS and IMU Data Synthesis Algorithm
 
 The algorithm produces synchronized GNSS and IMU data from vehicle telemetry.
-It reconstructs the vehicle trajectory from the velocity vector components, constructs
+Where position is not supplied after the initial point, the general generator
+reconstructs it through the navigation algorithm. The DCM profile instead uses
+the position supplied at every point. It constructs
 a Direction Cosine Matrix (DCM) from the attitude angles, and then calculates gyroscope
 and accelerometer readings in the body frame. The gyroscope readings in the body frame
 are refined iteratively to reduce data synthesis error caused by the simplified DCM
@@ -51,6 +53,10 @@ kinematics equation used by the navigation algorithm.
 The following sections describe the DCM reference profile used by
 `DcmTrajectoryGenerator`.
 
+`SyntheticDataGenerator` uses a different path: it calls the supplied INS
+algorithm through `InertialNavigationAlgorithm` and solves for an IMU sample
+that reproduces each target state. It does not pass GNSS measurements to the INS.
+
 ![algorithm.png](png/alg-nav-inv.png)
 
 ---
@@ -58,7 +64,7 @@ The following sections describe the DCM reference profile used by
 
 The source telemetry is provided as discrete samples:
 $$
-t_k, \qquad k = 0, 1, 2, \ldots, N.
+t_k, \qquad k = 0, 1, 2, \ldots, N - 1.
 $$
 
 The minimum required data is identified in items 1–3. The data in item 4 is intended
@@ -99,6 +105,9 @@ $$
 
 ---
 ## Input Data Preprocessing
+
+Interpolation, angle unwrapping, and resampling are preparation steps for the
+caller; the trajectory readers do not perform them automatically.
 
 ### Interpolation of Invalid Values
 
@@ -155,7 +164,7 @@ $$
 
 Longitude is computed by integrating the east velocity component:
 $$
-\lambda_{i+1} = \lambda_{i-1} + \Delta t\frac{V_{ox,i-1}}
+\lambda_i = \lambda_{i-1} + \Delta t\frac{V_{ox,i-1}}
 {\left(R_{\lambda} + h_{i-1}\right)\cos\left(\varphi_{i-1}\right)}.
 $$
 
@@ -209,6 +218,8 @@ $$
 $$
 
 This expression is the inverse DCM kinematics equation for two rotating frames.
+The implementation extracts the antisymmetric part of its right-hand side and
+applies `vee` to obtain the three-component angular-rate estimate.
 
 The following initial conditions are used for iterative refinement of the gyroscope readings:
 $$
@@ -289,7 +300,16 @@ $$
 
 The calculation of `DCM^pred`, `ΔC^j`, and the correction is repeated until
 `ΔC^j < ε` or 12 iterations have been completed. The implementation uses
-`ε = 1e-15` and records the final residual in `GenerationDiagnostics`.
+`ε = 1e-15` and records the residual for the returned angular rate in
+`GenerationDiagnostics`, together with the actual iteration count. After the
+last permitted update, the residual is evaluated again without another update.
+`converged` is true only when this residual is below `ε`.
+
+The SO(3) projection uses float64 SVD even on platforms with higher-precision
+`longdouble`. Rounding can prevent convergence at `1e-15`; reaching the iteration
+limit does not guarantee convergence. `generate()` exposes this in diagnostics.
+`write()` writes the resulting samples without rejecting non-converged steps
+and does not include diagnostics in the DAT files.
 
 ---
 ## Calculating Accelerometer Readings
@@ -300,23 +320,34 @@ $$
 \dot V_{nav}(t_i) = \frac{V_{nav}(t_{i+1}) - V_{nav}(t_i)}{\Delta t}.
 $$
 
-Accelerometer readings in the body frame are calculated as:
+The current DCM implementation computes the navigation-frame specific force
+componentwise. With `V = (V_E, V_N, V_U)`, `ω_nav = (ω_x, ω_y, ω_z)`,
+Earth rotation magnitude `Ω`, latitude `φ`, and positive gravity magnitude `g_0`:
+
+$$
+f_{nav} = \begin{bmatrix}
+\dot V_E - V_N(\omega_z + \Omega\sin\varphi)
+  + V_U(\omega_y + \Omega\cos\varphi) \\
+\dot V_N + V_E(\omega_z + \Omega\sin\varphi) + V_U\omega_x \\
+\dot V_U - V_E(\omega_y + \Omega\cos\varphi) + V_N\omega_x + g_0
+\end{bmatrix}.
+$$
+
+All terms use the interval's initial state, except the forward velocity difference.
+Accelerometer readings in the body frame are then:
 
 $$
 a_b(t_i)
 =
 \left(C_b^{nav}(t_i)\right)^T
-\left[
-\dot V_{nav}(t_i) +
-\left([2\omega_{nav}(t_i)] + [U_{nav}(t_i)]
-\right)V_{nav}(t_i) -
-g(t_i)
-\right].
+f_{nav}(t_i).
 $$
 
 The transposed DCM transforms the result from the navigation frame to the body frame.
-The expression includes the velocity derivative, navigation-frame angular terms,
-and the gravity vector.
+This records the implemented component signs, not a derivation of the standard
+cross-product equation. In particular, the north component uses `+V_U ω_x`;
+`(ω_nav + U_nav) × V_nav` would give `-V_U ω_x` there. Resolving that
+mathematical discrepancy requires a separate review of the implementation.
 
 ---
 ## Output Data

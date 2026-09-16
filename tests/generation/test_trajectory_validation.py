@@ -46,11 +46,7 @@ def test_validator_rejects_non_increasing_or_non_uniform_time() -> None:
     with pytest.raises(InvalidTrajectoryError, match="strictly increasing"):
         list(validator.validate((_point(0.0, position=True), _point(0.0))))
     with pytest.raises(InvalidTrajectoryError, match="must be uniform"):
-        list(
-            validator.validate(
-                (_point(0.0, position=True), _point(1.0), _point(2.1))
-            )
-        )
+        list(validator.validate((_point(0.0, position=True), _point(1.0), _point(2.1))))
 
 
 def test_validator_can_accept_non_uniform_time() -> None:

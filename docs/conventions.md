@@ -153,12 +153,19 @@ cos\gamma & 0 & -\sin\gamma \\
 \end{bmatrix}
 $$
 
-The transformation matrix is formed by multiplying the elementary rotation matrices in sequence:
+The matrices above compose the navigation-to-body transformation:
 $$
 C_n^b = C_{\gamma} \cdot C_{\vartheta} \cdot C_{\psi}
 $$
-- the lower index `b` denotes the body coordinate system (body frame);
-- the upper index `n` denotes the ENU navigation coordinate system (local-level frame).
+
+The implementation's body-to-navigation matrix is its transpose:
+
+$$
+C_b^n = \left(C_{\gamma} \cdot C_{\vartheta} \cdot C_{\psi}\right)^T.
+$$
+
+The lower index denotes the source frame and the upper index the destination
+frame: `b` is body and `n` is ENU navigation.
 
 ---
 ## Units of Measurement

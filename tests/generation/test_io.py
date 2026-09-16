@@ -138,7 +138,9 @@ def test_reader_can_explicitly_accept_a_non_uniform_time_grid(tmp_path: Path) ->
         )
     )
 
-    assert [point.time_s for point in points] == [0.0, 1.0, 2.1]
+    assert [point.time_s for point in points] == [
+        np.longdouble(value) for value in ("0", "1", "2.1")
+    ]
 
 
 def test_csv_reader_implements_provider_adapter_protocol(tmp_path: Path) -> None:
@@ -150,8 +152,7 @@ def test_csv_reader_implements_provider_adapter_protocol(tmp_path: Path) -> None
 def test_reader_applies_input_convention_to_provider_values(tmp_path: Path) -> None:
     path = tmp_path / "trajectory.csv"
     path.write_text(
-        "t,lat,lon,h,pitch,roll,heading,vx,vy,vz\n"
-        "0,55,37,100,10,-20,30,2,3,5\n",
+        "t,lat,lon,h,pitch,roll,heading,vx,vy,vz\n0,55,37,100,10,-20,30,2,3,5\n",
         encoding="utf-8",
     )
     north_east_down_to_enu = SignedAxisMapping(

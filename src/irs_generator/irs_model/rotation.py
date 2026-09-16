@@ -85,9 +85,7 @@ def dcm_body_to_nav_to_euler(dcm: Matrix3) -> EulerAngles:
     if not np.all(np.isfinite(matrix)):
         raise ValueError("dcm must contain only finite values")
 
-    heading = np.arctan2(matrix[0, 1], matrix[1, 1]) % (
-        2.0 * np.longdouble(np.pi)
-    )
+    heading = np.arctan2(matrix[0, 1], matrix[1, 1]) % (2.0 * np.longdouble(np.pi))
     roll = -np.arctan2(matrix[2, 0], matrix[2, 2])
     pitch = np.arctan2(matrix[2, 1], np.hypot(matrix[2, 0], matrix[2, 2]))
     return EulerAngles(pitch, roll, heading)

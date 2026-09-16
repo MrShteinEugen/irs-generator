@@ -6,8 +6,7 @@ a navigation algorithm.
 
 Mathematically, the generator solves the inverse problem of the navigation algorithm. Its input
 consists of navigation parameters used to determine gyroscope and accelerometer readings.
-Accelerometer data synthesis is straightforward. Gyroscope data synthesis uses a novel iterative
-approach to generate ideal synthetic readings.
+Gyroscope data synthesis uses iterative refinement of the angular-rate estimate.
 
 The main use case is preparing input data for the development, testing, and debugging of
 inertial navigation algorithms.
@@ -32,7 +31,7 @@ uv add irs-generator
 To work with the source code:
 
 ```bash
-uv sync --extra test --extra lint
+uv sync --extra test --extra lint --frozen
 ```
 
 ### Full-Flight Example
@@ -41,13 +40,13 @@ The repository includes a prepared file containing an aircraft flight trajectory
 Running the full data-generation example creates `imu.dat` and `gps.dat`:
 
 ```bash
-python examples/full_flight/generate.py
+uv run --no-sync python examples/full_flight/generate.py
 ```
 
 To compare the result with the reference files, run:
 
 ```bash
-python examples/full_flight/generate.py --check
+uv run --no-sync python examples/full_flight/generate.py --check
 ```
 
 For details, see the [full-flight example](../examples/full_flight/README.md).
