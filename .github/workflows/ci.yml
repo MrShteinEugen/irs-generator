@@ -14,9 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: CI
-    runs-on: ubuntu-latest
+  validate:
+    name: Validate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
 
     steps:
@@ -62,3 +66,12 @@ jobs:
       - name: Verify lockfile is unchanged
         if: always()
         run: git diff --exit-code -- uv.lock
+
+  ci:
+    name: CI
+    if: always()
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both platforms to pass
+        run: test '${{ needs.validate.result }}' = 'success'

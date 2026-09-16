@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from examples.full_flight.generate import _assert_reference_values
 
 from irs_generator.earth_model import GeodeticPosition
 from irs_generator.generation import (
@@ -127,29 +128,19 @@ def test_generator_reads_and_writes_a_full_flight_prefix(tmp_path: Path) -> None
             islice(csv.reader(file, delimiter=" "), 1, len(points) + 1)
         )
 
-    for generated_row, expected_row in zip(
-        imu_rows[1:],
-        expected_imu_rows,
-        strict=True,
+    for filename, actual, expected in (
+        ("imu.dat", imu_rows[1:], expected_imu_rows),
+        ("gps.dat", gnss_rows[1:], expected_gnss_rows),
     ):
-        assert float(generated_row[0]) == pytest.approx(float(expected_row[0]))
-        assert [float(value) for value in generated_row[1:]] == pytest.approx(
-            [float(value) for value in expected_row[1:]],
-            abs=2e-14,
+        _assert_reference_values(
+            np.asarray(actual, dtype=np.float64),
+            np.asarray(expected, dtype=np.float64),
+            filename,
+            float(reader.time_step_s()),
         )
-    for generated_row, expected_row in zip(
-        gnss_rows[1:],
-        expected_gnss_rows,
-        strict=True,
-    ):
-        assert [float(value) for value in generated_row[:6]] == pytest.approx(
-            [float(value) for value in expected_row[:6]],
-            abs=2e-14,
-        )
-        assert generated_row[6:] == expected_row[6:]
 
 
-def test_dcm_generator_matches_the_full_reference_to_float64_ulp(
+def test_dcm_generator_matches_the_full_reference_with_portable_tolerances(
     tmp_path: Path,
 ) -> None:
     reader = DcmTrajectoryReader(INPUT_PATH)
@@ -168,4 +159,6 @@ def test_dcm_generator_matches_the_full_reference_to_float64_ulp(
         assert generated_rows[0] == expected_rows[0]
         generated_values = np.asarray(generated_rows[1:], dtype=np.float64)
         expected_values = np.asarray(expected_rows[1:], dtype=np.float64)
-        np.testing.assert_array_max_ulp(generated_values, expected_values, maxulp=4)
+        _assert_reference_values(
+            generated_values, expected_values, output_name, float(reader.time_step_s())
+        )

@@ -1,14 +1,19 @@
 # Continuous integration
 
 `workflows/ci.yml` runs on pull requests targeting `main` or `develop` and on
-pushes to either branch. Its job is named `CI`; keep this name stable because
-the branch protection rule for `main` requires that status check.
+pushes to either branch. Validation runs on both Ubuntu and Windows. The final
+job is named `CI` and succeeds only if both platforms pass; keep this name stable
+because the branch protection rule for `main` requires that status check.
 
-The job uses Python 3.12 and installs project dependencies with
+Each platform's validation job uses Python 3.12 and installs dependencies with
 `uv sync --extra test --extra lint --frozen`. Quality checks use `uv run
 --no-sync` to preserve that environment. The build frontend is installed
-separately in the runner's Python environment. The job builds a wheel and an
+separately in the runner's Python environment. Each validation job builds a wheel and an
 sdist, audits both, and checks that `uv.lock` has not changed.
+
+Quality checks are `ruff check src tests`, `ruff format --check src tests`,
+`mypy src`, and `pytest`. The final `CI` job fails unless the validation matrix
+finishes successfully; it does not repeat these checks.
 
 ## Branch protection
 

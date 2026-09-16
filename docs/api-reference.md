@@ -134,8 +134,6 @@ Inertial system: IMU, INS algorithms, errors, and IRS.
 | `CompositeImuErrorModel`                            | Sequential composition of multiple error models.                              |
 | `AnalyticAlignment`                                 | Analytical initial alignment from an IMU measurement.                         |
 | `CorrectionStrategy`                                | Protocol for a GNSS-aiding correction strategy.                               |
-| `CorrectionContext`                                 | Inputs available to a correction strategy during one INS step.                |
-| `CorrectionOutput`                                  | Additive changes produced by a correction strategy.                           |
 | `NoCorrection`                                      | Default strategy that leaves mechanization unchanged.                         |
 | `CompositeCorrection`                               | Combines several correction strategies.                                       |
 | `VelocityAidingConfig` / `VelocityAidingCorrection` | Configuration and strategy for horizontal GNSS velocity aiding.               |
@@ -184,6 +182,11 @@ The generator uses this method for trial numerical steps.
 samples during inverse synthesis, so these corrections are intended for direct
 INS propagation.
 
+The public module `irs_generator.irs_model.corrections` exports the correction
+strategies and configurations listed above, plus `CorrectionContext` (inputs to
+one correction step) and `CorrectionOutput` (additive corrections). Import these
+two types from that module, not from `irs_generator.irs_model`.
+
 ---
 ## `irs_generator.generation`
 
@@ -216,7 +219,7 @@ Streaming IMU/GNSS data synthesis and file input/output.
 | `SyntheticDataGenerator`     | General-purpose generator based on the INS interface.               |
 | `DcmTrajectoryPoint`         | Point of a canonical DCM trajectory.                                |
 | `DcmTrajectoryReader`        | Reader for a canonical prepared DCM trajectory.                     |
-| `DcmTrajectoryGenerator`     | Exact DCM generator.                                                |
+| `DcmTrajectoryGenerator`     | Specialized inverse generator using DCM kinematics.                 |
 | `CsvTrajectorySchema`        | Definition of input CSV trajectory column names.                    |
 | `CsvTrajectoryReader`        | Streaming reader for an input CSV trajectory.                       |
 | `CsvOutputWriter`            | Writer for IMU/GNSS results.                                        |
@@ -249,11 +252,13 @@ allows intentionally non-uniform input.
 
 Describes the result of one generation step:
 
-- time;
-- synthetic IMU measurement;
-- GNSS sample;
-- navigation state;
-- diagnostics.
+- `time_s`;
+- `imu_sample`;
+- `navigation_state`;
+- `diagnostics`.
+
+There is no separate GNSS sample field. Output writers derive GNSS values from
+the navigation state.
 
 ### `SyntheticDataGenerator`
 
@@ -275,11 +280,31 @@ Generation runtime failures derive from `GenerationError`. Catch
 `GenerationConvergenceError` for an unconverged inverse step, and
 `GenerationSolverError` for an invalid numerical solver result.
 
+`SyntheticDataGenerator` raises `GenerationConvergenceError` when
+`GenerationConfig.fail_on_nonconvergence` is true (the default).
+The specialized DCM generator instead reports non-convergence in diagnostics.
+
 ### `DcmTrajectoryGenerator`
 
 Specialized reference generator for canonical DCM trajectories. It uses adjacent
 trajectory points and DCM kinematics to calculate the IMU measurement with a
 bounded iterative refinement.
+
+For this generator, `GenerationDiagnostics` contains:
+
+- `iteration_count`: iterations performed, from 1 to 12. The final residual-only
+  evaluation after the last update does not count as another iteration.
+- `residual_norm`: the maximum absolute element of the difference between the
+  target DCM and the projected prediction for the returned angular rate.
+- `converged`: whether that dimensionless residual is below `1e-15`.
+
+These residual semantics are specific to DCM synthesis; the general inverse
+solver uses a normalized velocity/attitude residual.
+
+`generate()` exposes diagnostics in each result. `write()` does not reject
+non-converged steps and does not write diagnostics to DAT files. The projection
+uses float64 SVD, so platform-dependent rounding can prevent convergence at
+`1e-15`. Output is not guaranteed to be bitwise identical across platforms.
 
 ---
 ## Internal Modules

@@ -2,8 +2,9 @@
 
 This directory tests the `irs-generator` distribution published on PyPI.
 
-The test does not use the source code from this repository. Instead, it creates a separate 
-virtual environment, installs the package into it, and verifies the import path.
+The setup commands below create a separate virtual environment and install the
+published package. The test verifies that imports come from that environment,
+not from the working copy. Unpublished changes in this repository are not tested.
 
 Python 3.12 or later is required.
 
@@ -24,12 +25,14 @@ package from the working copy.
 
 ## What Is Tested
 
-* The package is installed from PyPI, has distribution metadata, and is imported from 
-* the newly created virtual environment.
-* `SyntheticDataGenerator`, together with `DcmStrapdownINS`, produces two consistent 
-* steps for a minimal stationary trajectory.
-* `DcmTrajectoryReader` and `DcmTrajectoryGenerator` read the prepared CSV file and 
-* generate `imu.dat` and `gps.dat`.
+- The package has distribution metadata and is imported from the virtual environment.
+- `SyntheticDataGenerator`, together with `DcmStrapdownINS`, produces two consistent
+  steps for a minimal stationary trajectory.
+- `DcmTrajectoryReader` and `DcmTrajectoryGenerator` read the prepared CSV file and
+  generate `imu.dat` and `gps.dat`.
+
+Installation uses pip's configured package index (PyPI by default). The import
+check alone does not establish which index supplied the package.
 
 The test scenarios use public imports only. Temporary input and output files are 
 created in the system temporary directory and removed after the test completes.

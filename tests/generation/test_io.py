@@ -138,7 +138,9 @@ def test_reader_can_explicitly_accept_a_non_uniform_time_grid(tmp_path: Path) ->
         )
     )
 
-    assert [point.time_s for point in points] == [0.0, 1.0, 2.1]
+    assert [point.time_s for point in points] == [
+        np.longdouble(value) for value in ("0", "1", "2.1")
+    ]
 
 
 def test_csv_reader_implements_provider_adapter_protocol(tmp_path: Path) -> None:
