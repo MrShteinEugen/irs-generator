@@ -1,36 +1,210 @@
-# Continuous integration
+# IRS Generator
 
-`workflows/ci.yml` runs on pull requests targeting `main` or `develop` and on
-pushes to either branch. Validation runs on both Ubuntu and Windows. The final
-job is named `CI` and succeeds only if both platforms pass; keep this name stable
-because the branch protection rule for `main` requires that status check.
+`irs-generator` is a Python library for generating synthetic IMU and
+GNSS measurements from reference trajectories.
 
-Each platform's validation job uses Python 3.12 and installs dependencies with
-`uv sync --extra test --extra lint --frozen`. Quality checks use `uv run
---no-sync` to preserve that environment. The build frontend is installed
-separately in the runner's Python environment. Each validation job builds a wheel and an
-sdist, audits both, and checks that `uv.lock` has not changed.
+The library provides several Earth models, implementations of strapdown
+inertial navigation systems (SINS), and a trajectory generator designed
+for the development, testing, and debugging of inertial navigation
+algorithms.
 
-Quality checks are `ruff check src tests`, `ruff format --check src tests`,
-`mypy src`, and `pytest`. The final `CI` job fails unless the validation matrix
-finishes successfully; it does not repeat these checks.
+## Features
 
-## Branch protection
+- Earth models (WGS 84, GRS 80, configurable spherical model)
+- Multiple gravity models: constant gravity, inverse-square gravity, and Somigliana normal gravity
+- Strapdown INS implementation based on DCM
+- Streaming IMU and GNSS data generation
+- Extensible navigation algorithm interface
+- Configurable CSV output
 
-The GitHub protection rule for `main` requires:
+## Installation
 
-- A pull request before merging, with no mandatory review approvals.
-- A successful `CI` status check.
-- The branch to be up to date before merging.
-- Enforcement for administrators as well as other contributors.
+### Install from PyPI
 
-Branch protection is configured in GitHub, not by the workflow file. After
-uploading the workflow, open a pull request and confirm that `CI` appears and
-that merging is blocked until it succeeds. For a new repository or fork,
-configure the same rule under Settings > Branches.
+Install the latest stable release.
 
-If the workflow must be rolled back, first remove `CI` from the required checks
-in that rule, then revert the workflow change. Otherwise pull requests will
-remain blocked waiting for a check that can no longer run.
+**pip**
 
-`workflows/publish.yml` is separate and runs only when a release is published.
+```bash
+pip install irs-generator
+```
+
+**uv**
+
+```bash
+uv add irs-generator
+```
+
+### Install for development
+
+Clone the repository and install all development dependencies:
+
+```bash
+uv sync --extra test --extra lint --frozen
+```
+
+The `test` extra installs the packages required to run the test suite,
+while the `lint` extra installs the tools used for formatting and static
+analysis.
+
+## Quick Start
+
+```python
+from irs_generator.earth_model import GeodeticPosition
+from irs_generator.generation import CsvOutputWriter, SyntheticDataGenerator, TrajectoryPoint
+from irs_generator.irs_model import DcmStrapdownINS
+from irs_generator.navigation_model import EulerAngles, NavigationState, NavigationVelocity
+
+initial_state = NavigationState(
+    position=GeodeticPosition(longitude_rad=0.0, latitude_rad=0.5, height_m=100.0),
+    velocity=NavigationVelocity(east_m_s=0.0, north_m_s=0.0, up_m_s=0.0),
+    attitude=EulerAngles(pitch_rad=0.0, roll_rad=0.0, heading_rad=0.0),
+)
+points = (
+    TrajectoryPoint(
+        time_s=0.0,
+        position=initial_state.position,
+        velocity=initial_state.velocity,
+        attitude=initial_state.attitude,
+    ),
+    TrajectoryPoint(
+        time_s=0.01,
+        position=initial_state.position,
+        velocity=initial_state.velocity,
+        attitude=initial_state.attitude,
+    ),
+)
+
+generator = SyntheticDataGenerator(DcmStrapdownINS(initial_state))
+
+with CsvOutputWriter("output") as writer:
+    for sample in generator.generate(points):
+        writer.write(sample)
+```
+
+See the API documentation for complete examples.
+
+## Full Flight Example
+
+`examples/full_flight` contains a prepared trajectory, reference IMU and
+GNSS data files, and an executable example.
+
+```bash
+uv run --no-sync python examples/full_flight/generate.py
+```
+
+## Architecture
+
+```text
+irs_generator/
+├── earth_model/
+│   ├── coordinates.py
+│   ├── geometry.py
+│   ├── gravity.py
+│   ├── models.py
+│   └── rotation.py
+├── navigation_model/
+│   ├── navigation.py
+│   └── orientation.py
+├── gps_model/
+│   └── gnss.py
+├── irs_model/
+│   ├── algorithm.py
+│   ├── imu.py
+│   ├── error_model.py
+│   ├── mechanization.py
+│   ├── system.py
+│   └── rotation.py
+├── generation/
+│   ├── models.py
+│   ├── generator.py
+│   ├── solver.py
+│   ├── dcm.py
+│   ├── io.py
+│   └── formats.py
+└── utils/
+    ├── math.py
+    └── _validation.py
+```
+
+- `earth_model` — Earth geometry and gravity models.
+- `navigation_model` — Navigation state representation.
+- `gps_model` — GNSS data model.
+- `irs_model` — INS implementations and IMU models.
+- `generation` — Synthetic data generation.
+- `utils` — Shared utilities.
+
+## Coordinate System
+
+The navigation frame is ENU (East, North, Up).
+
+Body-frame axes:
+
+- x — right
+- y — forward
+- z — up
+
+## Units
+
+All internal calculations use SI units.
+
+| Quantity       | Unit   |
+|----------------|--------|
+| Time           | s      |
+| Position       | rad, m |
+| Velocity       | m/s    |
+| Specific force | m/s²   |
+| Angular rate   | rad/s  |
+
+## Data Formats
+
+The library supports configurable CSV formats and the legacy
+`imu.dat` / `gps.dat` format used by MFS24.
+
+## Extending
+
+New INS implementations can be added by implementing the
+`InertialNavigationAlgorithm` interface.
+
+## Limitations
+
+- Only the DCM implementation is currently available.
+- `SyntheticDataGenerator` generates a self-consistent trajectory and does not
+  pass GNSS samples to the navigation algorithm. `DcmStrapdownINS` supports
+  GNSS aiding when called directly with `step(..., gnss_sample=...)`.
+- No installed command-line entry point; the repository includes an example script.
+
+## Development
+
+```bash
+uv run --no-sync ruff check src tests
+uv run --no-sync ruff format --check src tests
+uv run --no-sync mypy src tests
+uv run --no-sync pytest
+```
+
+## Distribution Audit
+
+Before publishing a release, verify that the generated distribution
+artifacts do not contain unintended repository files.
+
+With Python 3.12 or later, install the build frontend and build the distributions:
+
+```bash
+python -m pip install build
+python -m build
+```
+
+Run the audit:
+
+```bash
+python scripts/audit_distribution.py
+```
+
+The audit checks both the wheel (`.whl`) and source distribution
+(`.tar.gz`) and fails if unexpected files are included. This helps
+prevent accidental publication of development artifacts.
+
+## License
+
+See `LICENSE`.
